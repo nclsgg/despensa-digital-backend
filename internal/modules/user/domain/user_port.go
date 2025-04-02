@@ -19,5 +19,6 @@ type UserService interface {
 
 type UserHandler interface {
 	GetUser(c *gin.Context)
+	GetCurrentUser(c *gin.Context)
 	GetAllUsers(c *gin.Context)
 }

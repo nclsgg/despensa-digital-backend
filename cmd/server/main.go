@@ -10,7 +10,8 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
-	db := database.Connect(cfg)
+	db := database.ConnectPostgres(cfg)
+	redis := database.ConnectRedis(cfg)
 
 	sqlDB, _ := db.DB()
 	db.AutoMigrate(&model.User{})
@@ -18,7 +19,7 @@ func main() {
 
 	r := gin.Default()
 
-	router.SetupRoutes(r, db)
+	router.SetupRoutes(r, db, cfg, redis)
 
 	r.Run(":" + cfg.Port)
 }

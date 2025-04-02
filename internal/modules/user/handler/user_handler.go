@@ -32,6 +32,17 @@ func (h *userHandler) GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+func (h *userHandler) GetCurrentUser(c *gin.Context) {
+	id, _ := c.Get("user_id")
+	user, err := h.service.GetUserById(c.Request.Context(), id.(uint64))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
 func (h *userHandler) GetAllUsers(c *gin.Context) {
 	users, err := h.service.GetAllUsers(c.Request.Context())
 	if err != nil {

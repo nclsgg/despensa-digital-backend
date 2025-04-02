@@ -11,7 +11,7 @@ import (
 
 var DB *gorm.DB
 
-func Connect(cfg *config.Config) *gorm.DB {
+func ConnectPostgres(cfg *config.Config) *gorm.DB {
 	log.Println("Connecting to database...")
 
 	maxAttempts := 3

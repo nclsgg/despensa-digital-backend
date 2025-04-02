@@ -19,3 +19,21 @@ func NewAuthRepository(db *gorm.DB) domain.AuthRepository {
 func (r *authRepository) CreateUser(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }
+
+func (r *authRepository) GetUserById(ctx context.Context, id uint64) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *authRepository) GetUser(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

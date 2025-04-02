@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -29,4 +30,45 @@ func (h *authHandler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+}
+
+func (h *authHandler) Login(c *gin.Context) {
+	var user model.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	accessToken, refreshToken, err := h.service.Login(c.Request.Context(), user.Email, user.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+		return
+	}
+
+	c.SetCookie("refresh_token", refreshToken, 60*60*24*7, "/", "localhost", true, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": accessToken,
+	})
+}
+
+func (h *authHandler) RefreshToken(c *gin.Context) {
+	log.Println("refresh token")
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid refresh token"})
+		return
+	}
+
+	accessToken, newRefreshToken, err := h.service.RefreshToken(c.Request.Context(), refreshToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
+		return
+	}
+
+	c.SetCookie("refresh_token", newRefreshToken, 60*60*24*7, "/", "localhost", true, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": accessToken,
+	})
 }
