@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -53,7 +52,6 @@ func (h *authHandler) Login(c *gin.Context) {
 }
 
 func (h *authHandler) RefreshToken(c *gin.Context) {
-	log.Println("refresh token")
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid refresh token"})

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/nclsgg/dispensa-digital/backend/config"
 	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/dispensa-digital/backend/internal/utils"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -30,13 +30,17 @@ func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis
 }
 
 func (s *authService) Register(ctx context.Context, user *model.User) error {
+	isEmailValid := utils.IsEmailValid(user.Email)
+	if !isEmailValid {
+		return errors.New("invalid email")
+	}
+
 	hashedPassword, err := s.HashPassword(user.Password)
 	if err != nil {
 		return err
 	}
 	user.Password = hashedPassword
 
-	log.Println("user password: ", user.Password)
 	return s.repo.CreateUser(ctx, user)
 }
 
@@ -71,7 +75,6 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 func (s *authService) HashPassword(password string) (string, error) {
 	hashedPassword, err := pbkdf2.Key(sha1.New, password, []byte("salt"), 4096, 32)
 	if err != nil {
-		log.Println("Failed to hash password: ", err)
 		return "", err
 	}
 	encoded := base64.StdEncoding.EncodeToString(hashedPassword)
