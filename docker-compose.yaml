@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: despensa-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    networks:
+      - despensa-net
+
+  postgres:
+    image: postgres:15
+    container_name: despensa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: despensa
+      POSTGRES_PASSWORD: despensa123
+      POSTGRES_DB: despensa_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - despensa-net
+
+  redis:
+    image: redis:7
+    container_name: despensa-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - despensa-net
+
+volumes:
+  pgdata:
+
+networks:
+  despensa-net:
+    driver: bridge
