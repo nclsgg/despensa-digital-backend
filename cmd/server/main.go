@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/nclsgg/dispensa-digital/backend/config"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/router"
-	"github.com/nclsgg/dispensa-digital/backend/pkg/database"
+	"github.com/nclsgg/despensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/router"
+	"github.com/nclsgg/despensa-digital/backend/pkg/database"
 )
 
 func main() {

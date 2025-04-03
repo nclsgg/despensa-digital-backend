@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/domain"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 )
 
 type userHandler struct {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/nclsgg/dispensa-digital/backend/config"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/domain"
+	"github.com/nclsgg/despensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 )
 
 func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) gin.HandlerFunc {

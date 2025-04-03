@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/domain"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 )
 
 type userService struct {

@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/nclsgg/dispensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

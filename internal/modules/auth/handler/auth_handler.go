@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/domain"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 )
 
 type authHandler struct {

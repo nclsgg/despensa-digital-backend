@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/nclsgg/dispensa-digital/backend/config"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/service"
+	"github.com/nclsgg/despensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/service"
 )
 
 type mockAuthRepository struct {

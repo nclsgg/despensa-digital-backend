@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/repository"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

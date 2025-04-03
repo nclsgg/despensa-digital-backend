@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/user/service"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

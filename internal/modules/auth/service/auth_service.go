@@ -12,10 +12,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/nclsgg/dispensa-digital/backend/config"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/domain"
-	"github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/model"
-	"github.com/nclsgg/dispensa-digital/backend/internal/utils"
+	"github.com/nclsgg/despensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/internal/utils"
 	"github.com/redis/go-redis/v9"
 )
 

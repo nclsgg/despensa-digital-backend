@@ -1,4 +1,4 @@
-module github.com/nclsgg/dispensa-digital/backend
+module github.com/nclsgg/despensa-digital/backend
 
 go 1.24.0
 

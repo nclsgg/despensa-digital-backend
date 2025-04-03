@@ -5,14 +5,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/nclsgg/dispensa-digital/backend/config"
-	authHandler "github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/handler"
-	authRepo "github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/repository"
-	authService "github.com/nclsgg/dispensa-digital/backend/internal/modules/auth/service"
-	userHandler "github.com/nclsgg/dispensa-digital/backend/internal/modules/user/handler"
-	userRepo "github.com/nclsgg/dispensa-digital/backend/internal/modules/user/repository"
-	userService "github.com/nclsgg/dispensa-digital/backend/internal/modules/user/service"
-	middleware "github.com/nclsgg/dispensa-digital/backend/internal/router/middlewares"
+	"github.com/nclsgg/despensa-digital/backend/config"
+	authHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/handler"
+	authRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/repository"
+	authService "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/service"
+	userHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/user/handler"
+	userRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
+	userService "github.com/nclsgg/despensa-digital/backend/internal/modules/user/service"
+	middleware "github.com/nclsgg/despensa-digital/backend/internal/router/middlewares"
 )
 
 func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Client) {
