@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
@@ -27,8 +26,14 @@ func NewUserHandler(service domain.UserService) domain.UserHandler {
 // @Failure 500 {object} response.APIResponse
 // @Router /user/{id} [get]
 func (h *userHandler) GetUser(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
+	rawID, ok := c.Get("user_id")
+	if !ok {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	id, ok := rawID.(uuid.UUID)
+	if !ok {
 		response.BadRequest(c, "Invalid user ID")
 		return
 	}
@@ -57,9 +62,19 @@ func (h *userHandler) GetUser(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /user/me [get]
 func (h *userHandler) GetCurrentUser(c *gin.Context) {
-	id, _ := c.Get("user_id")
+	rawID, ok := c.Get("user_id")
+	if !ok {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
 
-	user, err := h.service.GetUserById(c.Request.Context(), id.(uint64))
+	id, ok := rawID.(uuid.UUID)
+	if !ok {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	user, err := h.service.GetUserById(c.Request.Context(), id)
 	if err != nil {
 		response.InternalError(c, "Failed to retrieve user")
 		return

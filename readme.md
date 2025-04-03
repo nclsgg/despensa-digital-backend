@@ -92,15 +92,41 @@ go run cmd/server/main.go
 
 ## ✅ Rotas principais
 
-| Método | Rota            | Descrição                   |
-|--------|------------------|-----------------------------|
-| POST   | `/auth/register` | Registro de usuário         |
-| POST   | `/auth/login`    | Login e geração de tokens   |
-| POST   | `/auth/logout`   | Logout e remoção do refresh |
-| POST   | `/auth/refresh`  | Gera novo access token      |
-| GET    | `/user/me`       | Usuário logado              |
-| GET    | `/user/:id`      | Usuário por Id              |
-| GET    | `/user/all`      | Lista todos os usuários     |
+### 🔐 Autenticação
+
+| Método | Rota             | Descrição                    |
+|--------|------------------|------------------------------|
+| POST   | `/auth/register` | Registro de usuário          |
+| POST   | `/auth/login`    | Login e geração de tokens    |
+| POST   | `/auth/logout`   | Logout e remoção do token    |
+| POST   | `/auth/refresh`  | Gera novo access token       |
+
+### 👤 Usuário
+
+| Método | Rota         | Descrição                         |
+|--------|--------------|------------------------------------|
+| GET    | `/user/me`   | Dados do usuário logado            |
+| GET    | `/user/:id`  | Buscar usuário por ID              |
+| GET    | `/user/all`  | Listar todos os usuários (admin)   |
+
+### 🥫 Despensas
+
+| Método | Rota                     | Descrição                            |
+|--------|--------------------------|---------------------------------------|
+| GET    | `/pantries`              | Listar despensas do usuário           |
+| POST   | `/pantries`              | Criar nova despensa                   |
+| GET    | `/pantries/{id}`         | Detalhes de uma despensa              |
+| PUT    | `/pantries/{id}`         | Atualizar nome da despensa            |
+| DELETE | `/pantries/{id}`         | Deletar despensa (soft delete)        |
+
+### 👥 Usuários da Despensa
+
+| Método | Rota                               | Descrição                          |
+|--------|------------------------------------|-------------------------------------|
+| GET    | `/pantries/{id}/users`            | Listar usuários da despensa         |
+| POST   | `/pantries/{id}/users`            | Adicionar usuário à despensa        |
+| DELETE | `/pantries/{id}/users`            | Remover usuário da despensa         |
+
 
 Mais rotas serão adicionadas conforme o projeto evolui 🚧
 

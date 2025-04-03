@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ func (r *authRepository) CreateUser(ctx context.Context, user *model.User) error
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *authRepository) GetUserById(ctx context.Context, id uint64) (*model.User, error) {
+func (r *authRepository) GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
 	if err != nil {

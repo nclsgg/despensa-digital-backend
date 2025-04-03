@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -30,8 +29,7 @@ func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis
 }
 
 func (s *authService) Register(ctx context.Context, user *model.User) error {
-	isEmailValid := utils.IsEmailValid(user.Email)
-	if !isEmailValid {
+	if !utils.IsEmailValid(user.Email) {
 		return errors.New("invalid email")
 	}
 
@@ -74,21 +72,12 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	key := fmt.Sprintf("refresh_token:%s", refreshToken)
-	err := s.redis.Del(ctx, key).Err()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.redis.Del(ctx, key).Err()
 }
 
 func (s *authService) HashPassword(password string) (string, error) {
-	hashedPassword, err := pbkdf2.Key(sha1.New, password, []byte("salt"), 4096, 32)
-	if err != nil {
-		return "", err
-	}
+	hashedPassword, _ := pbkdf2.Key(sha1.New, password, []byte("salt"), 4096, 32)
 	encoded := base64.StdEncoding.EncodeToString(hashedPassword)
-
 	return encoded, nil
 }
 
@@ -109,15 +98,14 @@ func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	return token.SignedString([]byte(s.cfg.JWTSecret))
 }
 
-func (s *authService) GenerateRefreshToken(ctx context.Context, userID uint64) (string, error) {
+func (s *authService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	token := uuid.NewString()
 	key := fmt.Sprintf("refresh_token:%s", token)
 
-	err := s.redis.Set(ctx, key, userID, time.Hour*24*7).Err()
+	err := s.redis.Set(ctx, key, userID.String(), time.Hour*24*7).Err()
 	if err != nil {
 		return "", err
 	}
@@ -133,13 +121,17 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (st
 		return "", "", err
 	}
 
-	userID, _ := strconv.ParseUint(userIDStr, 10, 64)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return "", "", errors.New("invalid user id in token")
+	}
 
 	user, err := s.repo.GetUserById(ctx, userID)
 	if err != nil {
 		return "", "", err
 	}
 
+	// Invalida o token antigo
 	s.redis.Del(ctx, key)
 
 	accessToken, err := s.GenerateAccessToken(user)

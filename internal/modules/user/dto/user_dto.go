@@ -1,7 +1,9 @@
 package dto
 
+import "github.com/google/uuid"
+
 type UserResponse struct {
-	ID    uint64 `json:"id"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	ID    uuid.UUID `json:"id"`
+	Email string    `json:"email"`
+	Role  string    `json:"role"`
 }

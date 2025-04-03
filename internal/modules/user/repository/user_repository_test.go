@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,7 @@ func TestGetUserById(t *testing.T) {
 	ctx := context.Background()
 
 	userMock := &model.User{
+		ID:    uuid.New(),
 		Email: "teste@exemplo.com",
 	}
 
@@ -52,9 +54,11 @@ func TestGetAllUsers(t *testing.T) {
 
 	usersMock := []model.User{
 		{
+			ID:    uuid.New(),
 			Email: "teste@exemplo.com",
 		},
 		{
+			ID:    uuid.New(),
 			Email: "teste2@exemplo.com",
 		},
 	}

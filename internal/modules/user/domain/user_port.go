@@ -4,16 +4,17 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 )
 
 type UserRepository interface {
-	GetUserById(ctx context.Context, id uint64) (*model.User, error)
+	GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 }
 
 type UserService interface {
-	GetUserById(ctx context.Context, id uint64) (*model.User, error)
+	GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 }
 

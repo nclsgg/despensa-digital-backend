@@ -36,6 +36,7 @@ func (h *authHandler) Register(c *gin.Context) {
 	user := &model.User{
 		Email:    req.Email,
 		Password: req.Password,
+		Name:     req.Name,
 	}
 
 	if err := h.service.Register(c.Request.Context(), user); err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -32,7 +33,7 @@ func (m *mockAuthRepository) GetUser(ctx context.Context, email string) (*model.
 	return nil, args.Error(1)
 }
 
-func (m *mockAuthRepository) GetUserById(ctx context.Context, userID uint64) (*model.User, error) {
+func (m *mockAuthRepository) GetUserById(ctx context.Context, userID uuid.UUID) (*model.User, error) {
 	args := m.Called(ctx, userID)
 	if usr, ok := args.Get(0).(*model.User); ok {
 		return usr, args.Error(1)
@@ -42,9 +43,7 @@ func (m *mockAuthRepository) GetUserById(ctx context.Context, userID uint64) (*m
 
 func getTestRedisClient(t *testing.T) (*redis.Client, *miniredis.Miniredis) {
 	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("Erro ao iniciar miniredis: %v", err)
-	}
+	assert.NoError(t, err)
 	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
@@ -94,7 +93,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	user := &model.User{
-		ID:       1,
+		ID:       uuid.New(),
 		Email:    "teste@exemplo.com",
 		Password: hashedPwd,
 	}
@@ -117,14 +116,14 @@ func TestLogout(t *testing.T) {
 	cfg := getTestConfig()
 	authSvc := service.NewAuthService(repo, cfg, redisClient)
 
-	userID := uint64(1)
+	userID := uuid.New()
 	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, refreshToken)
 
 	err = authSvc.Logout(context.Background(), refreshToken)
 	assert.NoError(t, err)
-	assert.Empty(t, redisClient.Get(context.Background(), refreshToken).Val())
+	assert.False(t, mr.Exists("refresh_token:"+refreshToken))
 }
 
 func TestGenerateAccessToken(t *testing.T) {
@@ -136,7 +135,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	authSvc := service.NewAuthService(repo, cfg, redisClient)
 
 	user := &model.User{
-		ID:    1,
+		ID:    uuid.New(),
 		Email: "teste@exemplo.com",
 	}
 
@@ -159,15 +158,16 @@ func TestRefreshToken(t *testing.T) {
 	cfg := getTestConfig()
 	authSvc := service.NewAuthService(repo, cfg, redisClient)
 
-	userID := uint64(1)
-	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, refreshToken)
-
+	userID := uuid.New()
 	user := &model.User{
 		ID:    userID,
 		Email: "teste@exemplo.com",
 	}
+
+	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, refreshToken)
+
 	repo.On("GetUserById", mock.Anything, userID).Return(user, nil)
 
 	newAccessToken, newRefreshToken, err := authSvc.RefreshToken(context.Background(), refreshToken)

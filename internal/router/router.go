@@ -12,6 +12,9 @@ import (
 	authHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/handler"
 	authRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/repository"
 	authService "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/service"
+	pantryHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/handler"
+	pantryRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/repository"
+	pantryService "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
 	userHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/user/handler"
 	userRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
 	userService "github.com/nclsgg/despensa-digital/backend/internal/modules/user/service"
@@ -28,6 +31,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	// Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Auth routes
 	authRepoInstance := authRepo.NewAuthRepository(db)
 	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg, redis)
 	authHandlerInstance := authHandler.NewAuthHandler(authServiceInstance)
@@ -40,6 +44,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		authGroup.POST("/refresh", authHandlerInstance.RefreshToken)
 	}
 
+	// User routes
 	userRepoInstance := userRepo.NewUserRepository(db)
 	userServiceInstance := userService.NewUserService(userRepoInstance)
 	userHandlerInstance := userHandler.NewUserHandler(userServiceInstance)
@@ -52,8 +57,21 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		userGroup.GET("/all", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetAllUsers)
 	}
 
-	r.GET("/debug/routes", func(c *gin.Context) {
-		routes := r.Routes()
-		c.JSON(200, routes)
-	})
+	// Pantry routes
+	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
+	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance)
+	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance)
+
+	pantryGroup := r.Group("/pantries")
+	pantryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	{
+		pantryGroup.POST("/", pantryHandlerInstance.CreatePantry)
+		pantryGroup.GET("/", pantryHandlerInstance.ListPantries)
+		pantryGroup.GET("/:id", pantryHandlerInstance.GetPantry)
+		pantryGroup.DELETE("/:id", pantryHandlerInstance.DeletePantry)
+		pantryGroup.PUT("/:id", pantryHandlerInstance.UpdatePantry)
+		pantryGroup.POST("/:id/users", pantryHandlerInstance.AddUserToPantry)
+		pantryGroup.DELETE("/:id/users", pantryHandlerInstance.RemoveUserFromPantry)
+		pantryGroup.GET("/:id/users", pantryHandlerInstance.ListUsersInPantry)
+	}
 }

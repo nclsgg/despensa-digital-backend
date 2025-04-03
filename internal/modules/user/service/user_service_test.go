@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/service"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ type mockUserRepository struct {
 	mock.Mock
 }
 
-func (m *mockUserRepository) GetUserById(ctx context.Context, id uint64) (*model.User, error) {
+func (m *mockUserRepository) GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	args := m.Called(id)
 	if usr, ok := args.Get(0).(*model.User); ok {
 		return usr, args.Error(1)
@@ -34,15 +35,17 @@ func TestGetUser(t *testing.T) {
 	repo := new(mockUserRepository)
 	service := service.NewUserService(repo)
 
+	userID := uuid.New()
+
 	userMock := &model.User{
-		ID:    1,
+		ID:    userID,
 		Name:  "Test",
 		Email: "test@example.com",
 	}
 
-	repo.On("GetUserById", uint64(1)).Return(userMock, nil)
+	repo.On("GetUserById", userID).Return(userMock, nil)
 
-	user, err := service.GetUserById(context.Background(), 1)
+	user, err := service.GetUserById(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("Erro ao buscar usuário: %v", err)
 	}
@@ -59,12 +62,12 @@ func TestGetAllUsers(t *testing.T) {
 
 	usersMock := []model.User{
 		{
-			ID:    1,
+			ID:    uuid.New(),
 			Name:  "Test",
 			Email: "test1@example.com",
 		},
 		{
-			ID:    2,
+			ID:    uuid.New(),
 			Name:  "Test 2",
 			Email: "text2@example.com",
 		},

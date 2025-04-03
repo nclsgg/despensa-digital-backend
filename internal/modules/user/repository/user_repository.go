@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"gorm.io/gorm"
@@ -16,7 +17,7 @@ func NewUserRepository(db *gorm.DB) domain.UserRepository {
 	return &userRepository{db}
 }
 
-func (r *userRepository) GetUserById(ctx context.Context, id uint64) (*model.User, error) {
+func (r *userRepository) GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
 	return &user, err
