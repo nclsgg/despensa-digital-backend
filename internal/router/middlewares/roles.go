@@ -1,16 +1,15 @@
 package middleware
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 )
 
 func RoleMiddleware(roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			response.Fail(c, 401, "UNAUTHORIZED", "Missing user role in context")
 			c.Abort()
 			return
 		}
@@ -22,7 +21,7 @@ func RoleMiddleware(roles []string) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		response.Fail(c, 403, "FORBIDDEN_ROLE", "You do not have permission to access this resource")
 		c.Abort()
 	}
 }

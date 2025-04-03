@@ -72,6 +72,16 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 	return accessToken, refreshToken, nil
 }
 
+func (s *authService) Logout(ctx context.Context, refreshToken string) error {
+	key := fmt.Sprintf("refresh_token:%s", refreshToken)
+	err := s.redis.Del(ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *authService) HashPassword(password string) (string, error) {
 	hashedPassword, err := pbkdf2.Key(sha1.New, password, []byte("salt"), 4096, 32)
 	if err != nil {

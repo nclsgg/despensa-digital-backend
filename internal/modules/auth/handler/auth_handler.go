@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 )
 
 type authHandler struct {
@@ -16,57 +16,123 @@ func NewAuthHandler(service domain.AuthService) domain.AuthHandler {
 	return &authHandler{service}
 }
 
+// Register registers a new user
+// @Summary Register a new user
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body dto.RegisterRequest true "User data"
+// @Success 200 {object} response.MessageResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/register [post]
 func (h *authHandler) Register(c *gin.Context) {
-	var user model.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+	var req dto.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request payload")
 		return
 	}
 
-	if err := h.service.Register(c.Request.Context(), &user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+	user := &model.User{
+		Email:    req.Email,
+		Password: req.Password,
+	}
+
+	if err := h.service.Register(c.Request.Context(), user); err != nil {
+		response.InternalError(c, "Failed to register user")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+	response.OK(c, gin.H{"message": "User registered successfully"})
 }
 
+// Login authenticates a user and returns an access token
+// @Summary User login
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body dto.LoginRequest true "User credentials"
+// @Success 200 {object} response.LoginSuccessResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/login [post]
 func (h *authHandler) Login(c *gin.Context) {
-	var user model.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+	var req dto.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request payload")
 		return
 	}
 
-	accessToken, refreshToken, err := h.service.Login(c.Request.Context(), user.Email, user.Password)
+	accessToken, refreshToken, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+		response.InternalError(c, "Failed to login")
 		return
 	}
 
 	c.SetCookie("refresh_token", refreshToken, 60*60*24*7, "/", "localhost", true, true)
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token": accessToken,
-	})
+	authResp := dto.AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	response.OK(c, authResp)
 }
 
+// Logout terminates the user session
+// @Summary User logout
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.MessageResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/logout [post]
+func (h *authHandler) Logout(c *gin.Context) {
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+		response.BadRequest(c, "Invalid refresh token")
+		return
+	}
+
+	if err := h.service.Logout(c.Request.Context(), refreshToken); err != nil {
+		response.InternalError(c, "Failed to logout")
+		return
+	}
+
+	c.SetCookie("refresh_token", "", -1, "/", "localhost", true, true)
+
+	response.OK(c, gin.H{"message": "Logout successful"})
+}
+
+// RefreshToken generates a new access token from the refresh token
+// @Summary Refresh access token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.LoginSuccessResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/refresh [post]
 func (h *authHandler) RefreshToken(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid refresh token"})
+		response.BadRequest(c, "Invalid refresh token")
 		return
 	}
 
 	accessToken, newRefreshToken, err := h.service.RefreshToken(c.Request.Context(), refreshToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
+		response.InternalError(c, "Failed to refresh token")
 		return
 	}
 
 	c.SetCookie("refresh_token", newRefreshToken, 60*60*24*7, "/", "localhost", true, true)
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token": accessToken,
-	})
+	resp := dto.AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	}
+
+	response.OK(c, resp)
 }

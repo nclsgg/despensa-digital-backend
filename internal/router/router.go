@@ -2,7 +2,10 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 	"github.com/redis/go-redis/v9"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/gorm"
 
 	"github.com/nclsgg/despensa-digital/backend/config"
@@ -22,26 +25,35 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		})
 	})
 
-	authRepo := authRepo.NewAuthRepository(db)
-	authService := authService.NewAuthService(authRepo, cfg, redis)
-	authHandlerInstance := authHandler.NewAuthHandler(authService)
+	// Swagger
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	authRepoInstance := authRepo.NewAuthRepository(db)
+	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg, redis)
+	authHandlerInstance := authHandler.NewAuthHandler(authServiceInstance)
 
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/register", authHandlerInstance.Register)
 		authGroup.POST("/login", authHandlerInstance.Login)
+		authGroup.POST("/logout", authHandlerInstance.Logout)
 		authGroup.POST("/refresh", authHandlerInstance.RefreshToken)
 	}
 
-	userRepo := userRepo.NewUserRepository(db)
-	userService := userService.NewUserService(userRepo)
-	userHandler := userHandler.NewUserHandler(userService)
+	userRepoInstance := userRepo.NewUserRepository(db)
+	userServiceInstance := userService.NewUserService(userRepoInstance)
+	userHandlerInstance := userHandler.NewUserHandler(userServiceInstance)
 
 	userGroup := r.Group("/user")
-	userGroup.Use(middleware.AuthMiddleware(cfg, userRepo))
+	userGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	{
-		userGroup.GET("/:id", middleware.RoleMiddleware([]string{"admin"}), userHandler.GetUser)
-		userGroup.GET("/me", userHandler.GetCurrentUser)
-		userGroup.GET("/all", middleware.RoleMiddleware([]string{"admin"}), userHandler.GetAllUsers)
+		userGroup.GET("/:id", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetUser)
+		userGroup.GET("/me", userHandlerInstance.GetCurrentUser)
+		userGroup.GET("/all", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetAllUsers)
 	}
+
+	r.GET("/debug/routes", func(c *gin.Context) {
+		routes := r.Routes()
+		c.JSON(200, routes)
+	})
 }

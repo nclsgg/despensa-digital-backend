@@ -1,6 +1,8 @@
 package main
 
 import (
+	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nclsgg/despensa-digital/backend/config"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
@@ -8,6 +10,20 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/pkg/database"
 )
 
+// @title Despensa Digital API
+// @version 1.0
+// @description API da aplicação Despensa Digital
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name Nicolas Guadagno
+// @contact.url http://github.com/nclsgg
+// @contact.email nicolasguadagno@gmail.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:5310
+// @BasePath /
 func main() {
 	cfg := config.LoadConfig()
 	db := database.ConnectPostgres(cfg)

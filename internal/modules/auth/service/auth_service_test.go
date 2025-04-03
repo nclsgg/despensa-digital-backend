@@ -109,6 +109,24 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+func TestLogout(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	userID := uint64(1)
+	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, refreshToken)
+
+	err = authSvc.Logout(context.Background(), refreshToken)
+	assert.NoError(t, err)
+	assert.Empty(t, redisClient.Get(context.Background(), refreshToken).Val())
+}
+
 func TestGenerateAccessToken(t *testing.T) {
 	redisClient, mr := getTestRedisClient(t)
 	defer mr.Close()

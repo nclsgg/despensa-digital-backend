@@ -17,6 +17,7 @@ type AuthService interface {
 	Register(ctx context.Context, user *model.User) error
 	HashPassword(password string) (string, error)
 	Login(ctx context.Context, email, password string) (string, string, error)
+	Logout(ctx context.Context, refreshToken string) error
 	GenerateAccessToken(user *model.User) (string, error)
 	GenerateRefreshToken(ctx context.Context, userID uint64) (string, error)
 	RefreshToken(ctx context.Context, refreshToken string) (string, string, error)
@@ -25,5 +26,6 @@ type AuthService interface {
 type AuthHandler interface {
 	Register(c *gin.Context)
 	Login(c *gin.Context)
+	Logout(c *gin.Context)
 	RefreshToken(c *gin.Context)
 }
