@@ -5,7 +5,7 @@ COPY . .
 RUN go mod download
 RUN go build -o main ./cmd/server/main.go
 
-FROM scratch
+FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/main .
 CMD ["./main"]
