@@ -1,6 +1,9 @@
 package router
 
 import (
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 	"github.com/redis/go-redis/v9"
@@ -28,8 +31,14 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		})
 	})
 
-	// Swagger
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{cfg.CorsOrigin},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Auth routes
 	authRepoInstance := authRepo.NewAuthRepository(db)
@@ -74,4 +83,12 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		pantryGroup.DELETE("/:id/users", pantryHandlerInstance.RemoveUserFromPantry)
 		pantryGroup.GET("/:id/users", pantryHandlerInstance.ListUsersInPantry)
 	}
+
+	// Swagger routes
+	r.GET(
+		"/swagger/*any",
+		middleware.AuthMiddleware(cfg, userRepoInstance),
+		middleware.RoleMiddleware([]string{"admin"}),
+		ginSwagger.WrapHandler(swaggerFiles.Handler),
+	)
 }

@@ -17,6 +17,7 @@ type Config struct {
 	RedisDB       string
 	RedisUsername string
 	Port          string
+	CorsOrigin    string
 }
 
 func LoadConfig() *Config {
@@ -33,6 +34,7 @@ func LoadConfig() *Config {
 		RedisDB:       os.Getenv("REDIS_DB"),
 		RedisUsername: os.Getenv("REDIS_USERNAME"),
 		Port:          getEnv("PORT", "5310"),
+		CorsOrigin:    getEnv("CORS_ORIGIN", "http://localhost:3000"),
 	}
 
 	return cfg
