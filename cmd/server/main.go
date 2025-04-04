@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gin-contrib/cors"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 
 	"github.com/gin-gonic/gin"
@@ -37,6 +38,7 @@ func main() {
 	defer sqlDB.Close()
 
 	r := gin.Default()
+	r.Use(cors.Default())
 
 	router.SetupRoutes(r, db, cfg, redis)
 
