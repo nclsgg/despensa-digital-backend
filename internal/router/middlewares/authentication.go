@@ -14,6 +14,11 @@ import (
 
 func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			response.Fail(c, 401, "UNAUTHORIZED", "Missing or invalid Authorization header")
