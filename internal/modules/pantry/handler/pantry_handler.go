@@ -202,7 +202,7 @@ func (h *pantryHandler) AddUserToPantry(c *gin.Context) {
 	rawID, _ := c.Get("user_id")
 	ownerID := rawID.(uuid.UUID)
 
-	err = h.service.AddUserToPantry(c.Request.Context(), pantryID, ownerID, req.UserID)
+	err = h.service.AddUserToPantry(c.Request.Context(), pantryID, ownerID, req.Email)
 	if err != nil {
 		response.InternalError(c, "Failed to add user to pantry")
 		return
@@ -238,7 +238,7 @@ func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
 	rawID, _ := c.Get("user_id")
 	ownerID := rawID.(uuid.UUID)
 
-	err = h.service.RemoveUserFromPantry(c.Request.Context(), pantryID, ownerID, req.UserID)
+	err = h.service.RemoveUserFromPantry(c.Request.Context(), pantryID, ownerID, req.Email)
 	if err != nil {
 		response.InternalError(c, "Failed to remove user from pantry")
 		return

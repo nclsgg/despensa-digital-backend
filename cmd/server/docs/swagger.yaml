@@ -1,11 +1,105 @@
 basePath: /
 definitions:
+  dto.CreateDefaultItemCategoryDTO:
+    properties:
+      color:
+        type: string
+      name:
+        type: string
+    required:
+    - color
+    - name
+    type: object
+  dto.CreateItemCategoryDTO:
+    properties:
+      color:
+        type: string
+      name:
+        type: string
+      pantry_id:
+        type: string
+    required:
+    - color
+    - name
+    - pantry_id
+    type: object
+  dto.CreateItemDTO:
+    properties:
+      category_id:
+        type: string
+      expires_at:
+        type: string
+      name:
+        type: string
+      pantry_id:
+        type: string
+      price_per_unit:
+        minimum: 0
+        type: number
+      quantity:
+        minimum: 0
+        type: number
+      unit:
+        type: string
+    required:
+    - name
+    - pantry_id
+    - price_per_unit
+    - quantity
+    - unit
+    type: object
   dto.CreatePantryRequest:
     properties:
       name:
         type: string
     required:
     - name
+    type: object
+  dto.ItemCategoryResponse:
+    properties:
+      added_by:
+        type: string
+      color:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      pantry_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.ItemResponse:
+    properties:
+      added_by:
+        type: string
+      category_id:
+        type: string
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      pantry_id:
+        type: string
+      price_per_unit:
+        type: number
+      quantity:
+        type: number
+      total_price:
+        type: number
+      unit:
+        type: string
+      updated_at:
+        type: string
     type: object
   dto.LoginRequest:
     properties:
@@ -19,10 +113,10 @@ definitions:
     type: object
   dto.ModifyPantryUserRequest:
     properties:
-      user_id:
+      email:
         type: string
     required:
-    - user_id
+    - email
     type: object
   dto.PantryResponse:
     properties:
@@ -54,6 +148,28 @@ definitions:
     - email
     - name
     - password
+    type: object
+  dto.UpdateItemCategoryDTO:
+    properties:
+      color:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.UpdateItemDTO:
+    properties:
+      category_id:
+        type: string
+      expires_at:
+        type: string
+      name:
+        type: string
+      price_per_unit:
+        type: number
+      quantity:
+        type: number
+      unit:
+        type: string
     type: object
   dto.UpdatePantryRequest:
     properties:
@@ -241,6 +357,341 @@ paths:
       summary: Register a new user
       tags:
       - Authentication
+  /item-categories:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Item Category data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateItemCategoryDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ItemCategoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Create a new item category
+      tags:
+      - Item Categories
+  /item-categories/{id}:
+    delete:
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Delete an item category by ID
+      tags:
+      - Item Categories
+    get:
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ItemCategoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Get an item category by ID
+      tags:
+      - Item Categories
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateItemCategoryDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ItemCategoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Update an item category
+      tags:
+      - Item Categories
+  /item-categories/default:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Default Item Category data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateDefaultItemCategoryDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ItemCategoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Create a new default item category
+      tags:
+      - Item Categories
+  /item-categories/from-default/{default_id}/pantry/{pantry_id}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Pantry ID
+        in: path
+        name: pantry_id
+        required: true
+        type: string
+      - description: Default Category ID
+        in: path
+        name: default_category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ItemCategoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Clone a default item category to a pantry
+      tags:
+      - Item Categories
+  /item-categories/user:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ItemCategoryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: List item categories created by the user
+      tags:
+      - Item Categories
+  /items:
+    get:
+      parameters:
+      - description: Pantry ID
+        in: query
+        name: pantry_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/dto.ItemResponse'
+              type: array
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: List all items by pantry ID
+      tags:
+      - Items
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Item data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateItemDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Create a new item
+      tags:
+      - Items
+  /items/{id}:
+    delete:
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Delete an item by ID
+      tags:
+      - Items
+    get:
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Get an item by ID
+      tags:
+      - Items
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateItemDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Update an item
+      tags:
+      - Items
   /pantries:
     get:
       produces:
@@ -371,6 +822,34 @@ paths:
       summary: Update pantry name
       tags:
       - Pantry
+  /pantries/{id}/item-categories:
+    get:
+      parameters:
+      - description: Pantry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ItemCategoryResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: List item categories by pantry
+      tags:
+      - Item Categories
   /pantries/{id}/users:
     delete:
       consumes:

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
+	userModel "github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -65,9 +66,38 @@ func (m *mockPantryRepository) ListUsersInPantry(ctx context.Context, pantryID u
 	return args.Get(0).([]*model.PantryUserInfo), args.Error(1)
 }
 
+type mockUserRepository struct {
+	mock.Mock
+}
+
+func (m *mockUserRepository) GetUserById(ctx context.Context, id uuid.UUID) (*userModel.User, error) {
+	args := m.Called(ctx, id)
+	if usr, ok := args.Get(0).(*userModel.User); ok {
+		return usr, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *mockUserRepository) GetUserByEmail(ctx context.Context, email string) (*userModel.User, error) {
+	args := m.Called(ctx, email)
+	if usr, ok := args.Get(0).(*userModel.User); ok {
+		return usr, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *mockUserRepository) GetAllUsers(ctx context.Context) ([]userModel.User, error) {
+	args := m.Called(ctx)
+	if usrs, ok := args.Get(0).([]userModel.User); ok {
+		return usrs, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func TestCreatePantry(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
@@ -89,18 +119,21 @@ func TestCreatePantry(t *testing.T) {
 
 func TestAddUserToPantry(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
 	ownerID := uuid.New()
 	targetUserID := uuid.New()
+	targetUser := "teste@email.com"
 
 	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
 	repo.On("IsUserInPantry", ctx, pantryID, targetUserID).Return(false, nil)
+	userRepo.On("GetUserByEmail", ctx, targetUser).Return(&userModel.User{ID: targetUserID, Email: targetUser}, nil)
 	repo.On("AddUserToPantry", ctx, mock.AnythingOfType("*model.PantryUser")).Return(nil)
 
-	err := svc.AddUserToPantry(ctx, pantryID, ownerID, targetUserID)
+	err := svc.AddUserToPantry(ctx, pantryID, ownerID, targetUser)
 
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
@@ -108,39 +141,45 @@ func TestAddUserToPantry(t *testing.T) {
 
 func TestRemoveUserFromPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
 	ownerID := uuid.New()
 	targetUserID := uuid.New()
+	targetUser := "teste@email.com"
 
 	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
 	repo.On("RemoveUserFromPantry", ctx, pantryID, targetUserID).Return(nil)
+	userRepo.On("GetUserByEmail", ctx, targetUser).Return(&userModel.User{ID: targetUserID, Email: targetUser}, nil)
 
-	err := svc.RemoveUserFromPantry(ctx, pantryID, ownerID, targetUserID)
+	err := svc.RemoveUserFromPantry(ctx, pantryID, ownerID, targetUser)
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
 }
 
 func TestRemoveUserFromPantry_BlockOwner(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
 	ownerID := uuid.New()
+	ownerEmail := "teste@email.com"
 
 	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
 
-	err := svc.RemoveUserFromPantry(ctx, pantryID, ownerID, ownerID)
+	err := svc.RemoveUserFromPantry(ctx, pantryID, ownerID, ownerEmail)
 	assert.EqualError(t, err, "owner cannot remove themselves")
 	repo.AssertExpectations(t)
 }
 
 func TestGetPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -163,7 +202,8 @@ func TestGetPantry_Success(t *testing.T) {
 
 func TestGetPantry_NotMember(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -178,7 +218,8 @@ func TestGetPantry_NotMember(t *testing.T) {
 
 func TestListUsersInPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -200,7 +241,8 @@ func TestListUsersInPantry_Success(t *testing.T) {
 
 func TestListUsersInPantry_Unauthorized(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -215,7 +257,8 @@ func TestListUsersInPantry_Unauthorized(t *testing.T) {
 
 func TestUpdatePantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -239,7 +282,8 @@ func TestUpdatePantry_Success(t *testing.T) {
 
 func TestUpdatePantry_Unauthorized(t *testing.T) {
 	repo := new(mockPantryRepository)
-	svc := service.NewPantryService(repo)
+	userRepo := new(mockUserRepository)
+	svc := service.NewPantryService(repo, userRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()

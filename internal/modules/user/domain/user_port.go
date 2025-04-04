@@ -10,6 +10,7 @@ import (
 
 type UserRepository interface {
 	GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 }
 

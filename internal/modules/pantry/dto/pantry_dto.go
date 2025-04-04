@@ -17,7 +17,7 @@ type PantryResponse struct {
 }
 
 type ModifyPantryUserRequest struct {
-	UserID uuid.UUID `json:"user_id" binding:"required"`
+	Email string `json:"email" binding:"required"`
 }
 
 type PantryUserResponse struct {

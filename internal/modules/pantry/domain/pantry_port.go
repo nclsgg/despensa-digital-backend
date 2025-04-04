@@ -14,8 +14,8 @@ type PantryService interface {
 	ListPantriesByUser(ctx context.Context, userID uuid.UUID) ([]*model.Pantry, error)
 	DeletePantry(ctx context.Context, pantryID, userID uuid.UUID) error
 	UpdatePantry(ctx context.Context, pantryID, userID uuid.UUID, newName string) error
-	AddUserToPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) error
-	RemoveUserFromPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) error
+	AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error
+	RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error
 	ListUsersInPantry(ctx context.Context, pantryID, userID uuid.UUID) ([]*model.PantryUserInfo, error)
 }
 

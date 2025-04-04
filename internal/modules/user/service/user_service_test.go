@@ -23,6 +23,14 @@ func (m *mockUserRepository) GetUserById(ctx context.Context, id uuid.UUID) (*mo
 	return nil, args.Error(1)
 }
 
+func (m *mockUserRepository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	args := m.Called(email)
+	if usr, ok := args.Get(0).(*model.User); ok {
+		return usr, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *mockUserRepository) GetAllUsers(ctx context.Context) ([]model.User, error) {
 	args := m.Called()
 	if usrs, ok := args.Get(0).([]model.User); ok {

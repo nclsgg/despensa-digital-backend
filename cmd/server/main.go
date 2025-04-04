@@ -8,8 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nclsgg/despensa-digital/backend/config"
-	authModel "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
-	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/router"
 	"github.com/nclsgg/despensa-digital/backend/pkg/database"
 )
@@ -34,9 +32,7 @@ func main() {
 	redis := database.ConnectRedis(cfg)
 
 	sqlDB, _ := db.DB()
-	db.AutoMigrate(&authModel.User{})
-	db.AutoMigrate(&pantryModel.Pantry{})
-	db.AutoMigrate(&pantryModel.PantryUser{})
+	database.MigrateItems(db)
 	defer sqlDB.Close()
 
 	r := gin.Default()

@@ -127,8 +127,28 @@ go run cmd/server/main.go
 | POST   | `/pantries/{id}/users`            | Adicionar usuário à despensa        |
 | DELETE | `/pantries/{id}/users`            | Remover usuário da despensa         |
 
+### 💼 Itens da Despensa
 
-Mais rotas serão adicionadas conforme o projeto evolui 🚧
+| Método | Rota                         | Descrição                            |
+|--------|------------------------------|---------------------------------------|
+| POST   | `/items`                     | Criar item na despensa                |
+| GET    | `/items/pantry/{id}`         | Listar itens da despensa              |
+| GET    | `/items/{id}`                | Obter detalhes de um item             |
+| PUT    | `/items/{id}`                | Atualizar item                        |
+| DELETE | `/items/{id}`                | Deletar item                          |
+
+### 🌍 Categorias de Itens
+
+| Método | Rota                                                         | Descrição                                              |
+|--------|--------------------------------------------------------------|-----------------------------------------------------------|
+| POST   | `/item-categories`                                           | Criar nova categoria de item                              |
+| POST   | `/item-categories/default`                                   | Criar categoria padrão (admin)                           |
+| POST   | `/item-categories/from-default/{default_id}/pantry/{pantry_id}` | Clonar categoria padrão para despensa                    |
+| GET    | `/item-categories/pantry/{id}`                               | Listar categorias de uma despensa                         |
+| GET    | `/item-categories/{id}`                                      | Obter detalhes da categoria                               |
+| PUT    | `/item-categories/{id}`                                      | Atualizar categoria                                       |
+| DELETE | `/item-categories/{id}`                                      | Deletar categoria                                         |
+| GET    | `/item-categories/user`                                      | Listar categorias do usuário                             |
 
 ---
 
@@ -144,3 +164,4 @@ swag init -g cmd/server/main.go -o cmd/server/docs
 ## 📄 Licença
 
 MIT © [Nicolas Guadagno](https://github.com/nclsgg)
+

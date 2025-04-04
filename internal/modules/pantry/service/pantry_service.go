@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
+	userDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 )
 
 type pantryService struct {
-	repo domain.PantryRepository
+	repo     domain.PantryRepository
+	userRepo userDomain.UserRepository
 }
 
 var (
@@ -21,9 +23,11 @@ var (
 
 func NewPantryService(
 	repo domain.PantryRepository,
+	userRepo userDomain.UserRepository,
 ) domain.PantryService {
 	return &pantryService{
-		repo: repo,
+		repo:     repo,
+		userRepo: userRepo,
 	}
 }
 
@@ -97,7 +101,7 @@ func (s *pantryService) DeletePantry(ctx context.Context, pantryID uuid.UUID, us
 	return s.repo.Delete(ctx, pantryID)
 }
 
-func (s *pantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) error {
+func (s *pantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error {
 	isOwner, err := s.repo.IsUserOwner(ctx, pantryID, ownerID)
 	if err != nil {
 		return err
@@ -106,7 +110,12 @@ func (s *pantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID, 
 		return errors.New("only pantry owner can add users")
 	}
 
-	isMember, err := s.repo.IsUserInPantry(ctx, pantryID, targetUserID)
+	user, err := s.userRepo.GetUserByEmail(ctx, targetUser)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	isMember, err := s.repo.IsUserInPantry(ctx, pantryID, user.ID)
 	if err != nil {
 		return err
 	}
@@ -116,7 +125,7 @@ func (s *pantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID, 
 
 	pantryUser := &model.PantryUser{
 		PantryID: pantryID,
-		UserID:   targetUserID,
+		UserID:   user.ID,
 		Role:     "member",
 	}
 
@@ -135,7 +144,7 @@ func (s *pantryService) ListUsersInPantry(ctx context.Context, pantryID, userID 
 	return s.repo.ListUsersInPantry(ctx, pantryID)
 }
 
-func (s *pantryService) RemoveUserFromPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) error {
+func (s *pantryService) RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error {
 	isOwner, err := s.repo.IsUserOwner(ctx, pantryID, ownerID)
 	if err != nil {
 		return err
@@ -144,9 +153,14 @@ func (s *pantryService) RemoveUserFromPantry(ctx context.Context, pantryID, owne
 		return errors.New("only pantry owner can remove users")
 	}
 
-	if ownerID == targetUserID {
+	user, err := s.userRepo.GetUserByEmail(ctx, targetUser)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	if ownerID == user.ID {
 		return errors.New("owner cannot remove themselves")
 	}
 
-	return s.repo.RemoveUserFromPantry(ctx, pantryID, targetUserID)
+	return s.repo.RemoveUserFromPantry(ctx, pantryID, user.ID)
 }

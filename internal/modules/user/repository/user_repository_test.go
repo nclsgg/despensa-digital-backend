@@ -47,6 +47,27 @@ func TestGetUserById(t *testing.T) {
 	assert.Equal(t, userMock, user)
 }
 
+func TestGetUserByEmail(t *testing.T) {
+	db := setupTestDB(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	userMock := &model.User{
+		ID:    uuid.New(),
+		Email: "teste@exemplo.com",
+	}
+
+	err := db.Create(userMock).Error
+	assert.NoError(t, err)
+	assert.NotZero(t, userMock.ID)
+
+	user, err := repo.GetUserByEmail(ctx, userMock.Email)
+
+	assert.NoError(t, err)
+	assert.NotZero(t, user.Email)
+	assert.Equal(t, userMock, user)
+}
+
 func TestGetAllUsers(t *testing.T) {
 	db := setupTestDB(t)
 	repo := repository.NewUserRepository(db)
