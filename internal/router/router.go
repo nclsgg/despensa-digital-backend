@@ -62,8 +62,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	pantryGroup := r.Group("/pantries")
 	pantryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	{
-		pantryGroup.POST("/", pantryHandlerInstance.CreatePantry)
-		pantryGroup.GET("/", pantryHandlerInstance.ListPantries)
+		pantryGroup.POST("", pantryHandlerInstance.CreatePantry)
+		pantryGroup.GET("", pantryHandlerInstance.ListPantries)
 		pantryGroup.GET("/:id", pantryHandlerInstance.GetPantry)
 		pantryGroup.DELETE("/:id", pantryHandlerInstance.DeletePantry)
 		pantryGroup.PUT("/:id", pantryHandlerInstance.UpdatePantry)
