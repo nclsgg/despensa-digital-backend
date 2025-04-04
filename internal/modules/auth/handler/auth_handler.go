@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/dto"
@@ -70,7 +73,16 @@ func (h *authHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("refresh_token", refreshToken, 60*60*24*7, "/", "localhost", true, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	authResp := dto.AuthResponse{
 		AccessToken:  accessToken,
@@ -101,7 +113,16 @@ func (h *authHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("refresh_token", "", -1, "/", "localhost", true, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	response.OK(c, gin.H{"message": "Logout successful"})
 }
@@ -128,7 +149,16 @@ func (h *authHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("refresh_token", newRefreshToken, 60*60*24*7, "/", "localhost", true, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	resp := dto.AuthResponse{
 		AccessToken:  accessToken,
