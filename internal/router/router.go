@@ -1,7 +1,6 @@
 package router
 
 import (
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 	"github.com/redis/go-redis/v9"
@@ -28,17 +27,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 			"message": "pong",
 		})
 	})
-
-	// r.Use(cors.New(cors.Config{
-	// 	AllowOrigins:     []string{cfg.CorsOrigin},
-	// 	AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-	// 	AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-	// 	ExposeHeaders:    []string{"Content-Length"},
-	// 	AllowCredentials: true,
-	// 	MaxAge:           12 * time.Hour,
-	// }))
-
-	r.Use(cors.Default())
 
 	// Auth routes
 	authRepoInstance := authRepo.NewAuthRepository(db)
