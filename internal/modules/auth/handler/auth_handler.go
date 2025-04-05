@@ -74,6 +74,18 @@ func (h *authHandler) Login(c *gin.Context) {
 	}
 
 	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		Expires:  time.Now().Add(15 * time.Minute),
+		MaxAge:   15 * 60,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
+
+	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
 		Path:     "/",
@@ -114,6 +126,17 @@ func (h *authHandler) Logout(c *gin.Context) {
 	}
 
 	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
+
+	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
 		Path:     "/",
@@ -148,6 +171,18 @@ func (h *authHandler) RefreshToken(c *gin.Context) {
 		response.InternalError(c, "Failed to refresh token")
 		return
 	}
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Path:     "/",
+		Domain:   "despensa-digital-backend-production.up.railway.app",
+		Expires:  time.Now().Add(15 * time.Minute),
+		MaxAge:   15 * 60,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
