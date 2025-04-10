@@ -15,7 +15,7 @@ type AuthRepository interface {
 }
 
 type AuthService interface {
-	Register(ctx context.Context, user *model.User) error
+	Register(ctx context.Context, user *model.User) (accessToken string, refreshToken string, err error)
 	HashPassword(password string) (string, error)
 	Login(ctx context.Context, email, password string) (accessToken string, refreshToken string, err error)
 	Logout(ctx context.Context, refreshToken string) error

@@ -16,6 +16,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/utils"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 type authService struct {
@@ -28,18 +29,36 @@ func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis
 	return &authService{repo, cfg, redis}
 }
 
-func (s *authService) Register(ctx context.Context, user *model.User) error {
+func (s *authService) Register(ctx context.Context, user *model.User) (string, string, error) {
 	if !utils.IsEmailValid(user.Email) {
-		return errors.New("invalid email")
+		return "", "", errors.New("invalid email")
 	}
 
 	hashedPassword, err := s.HashPassword(user.Password)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	user.Password = hashedPassword
 
-	return s.repo.CreateUser(ctx, user)
+	if err := s.repo.CreateUser(ctx, user); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return "", "", errors.New("email already registered")
+		}
+
+		return "", "", errors.New("failed to create user")
+	}
+
+	accessToken, err := s.GenerateAccessToken(user)
+	if err != nil {
+		return "", "", errors.New("failed to generate token")
+	}
+
+	refreshToken, err := s.GenerateRefreshToken(ctx, user.ID)
+	if err != nil {
+		return "", "", errors.New("failed to generate refresh token")
+	}
+
+	return accessToken, refreshToken, nil
 }
 
 func (s *authService) Login(ctx context.Context, email, password string) (string, string, error) {
@@ -71,6 +90,9 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
+	if refreshToken == "" {
+		return nil
+	}
 	key := fmt.Sprintf("refresh_token:%s", refreshToken)
 	return s.redis.Del(ctx, key).Err()
 }

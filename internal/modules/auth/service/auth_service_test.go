@@ -74,9 +74,12 @@ func TestRegister_Success(t *testing.T) {
 
 	repo.On("CreateUser", mock.Anything, mock.Anything).Return(nil)
 
-	err := authSvc.Register(context.Background(), user)
+	accessToken, refreshToken, err := authSvc.Register(context.Background(), user)
 	assert.NoError(t, err)
 	assert.NotEqual(t, "senha123", user.Password)
+	assert.NotEmpty(t, accessToken)
+	assert.NotEmpty(t, refreshToken)
+	assert.True(t, mr.Exists("refresh_token:"+refreshToken))
 
 	repo.AssertExpectations(t)
 }

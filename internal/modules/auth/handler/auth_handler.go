@@ -42,12 +42,18 @@ func (h *authHandler) Register(c *gin.Context) {
 		Name:     req.Name,
 	}
 
-	if err := h.service.Register(c.Request.Context(), user); err != nil {
-		response.InternalError(c, "Failed to register user")
+	accessToken, refreshToken, err := h.service.Register(c.Request.Context(), user)
+	if err != nil {
+		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.OK(c, gin.H{"message": "User registered successfully"})
+	authResp := dto.AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	response.OK(c, authResp)
 }
 
 // Login authenticates a user and returns an access token
@@ -102,11 +108,7 @@ func (h *authHandler) Login(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /auth/logout [post]
 func (h *authHandler) Logout(c *gin.Context) {
-	refreshToken, err := c.Cookie("refresh_token")
-	if err != nil {
-		response.BadRequest(c, "Invalid refresh token")
-		return
-	}
+	refreshToken, _ := c.Cookie("refresh_token")
 
 	if err := h.service.Logout(c.Request.Context(), refreshToken); err != nil {
 		response.InternalError(c, "Failed to logout")
