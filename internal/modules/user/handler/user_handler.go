@@ -83,6 +83,7 @@ func (h *userHandler) GetCurrentUser(c *gin.Context) {
 	dto := dto.UserResponse{
 		ID:    user.ID,
 		Email: user.Email,
+		Name:  user.Name,
 		Role:  user.Role,
 	}
 
@@ -108,6 +109,7 @@ func (h *userHandler) GetAllUsers(c *gin.Context) {
 		dtos = append(dtos, dto.UserResponse{
 			ID:    user.ID,
 			Email: user.Email,
+			Name:  user.Name,
 			Role:  user.Role,
 		})
 	}
