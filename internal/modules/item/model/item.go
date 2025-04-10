@@ -42,7 +42,11 @@ func (i *Item) ApplyUpdate(input dto.UpdateItemDTO) {
 		parsedUUID := uuid.MustParse(*input.CategoryID)
 		i.CategoryID = &parsedUUID
 	}
-	if input.ExpiresAt != nil {
-		i.ExpiresAt = input.ExpiresAt
+	if input.ExpiresAt != "" {
+		layout := "2006-01-02"
+		parsedTime, err := time.Parse(layout, input.ExpiresAt)
+		if err == nil {
+			i.ExpiresAt = &parsedTime
+		}
 	}
 }

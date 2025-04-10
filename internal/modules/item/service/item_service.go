@@ -12,6 +12,18 @@ import (
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 )
 
+func parseTimePointer(dateStr string) *time.Time {
+	if dateStr == "" {
+		return nil
+	}
+	layout := "2006-01-02"
+	parsedTime, err := time.Parse(layout, dateStr)
+	if err != nil {
+		return nil
+	}
+	return &parsedTime
+}
+
 type itemService struct {
 	repo       domain.ItemRepository
 	pantryRepo pantryDomain.PantryRepository
@@ -38,7 +50,7 @@ func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userI
 		PricePerUnit: input.PricePerUnit,
 		Unit:         input.Unit,
 		CategoryID:   nil,
-		ExpiresAt:    input.ExpiresAt,
+		ExpiresAt:    parseTimePointer(input.ExpiresAt),
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
