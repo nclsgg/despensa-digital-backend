@@ -37,11 +37,17 @@ func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userI
 		Quantity:     input.Quantity,
 		PricePerUnit: input.PricePerUnit,
 		Unit:         input.Unit,
-		CategoryID:   func() *uuid.UUID { id := uuid.MustParse(*input.CategoryID); return &id }(),
+		CategoryID:   nil,
 		ExpiresAt:    input.ExpiresAt,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
+
+	if input.CategoryID != nil {
+		categoryID := uuid.MustParse(*input.CategoryID)
+		item.CategoryID = &categoryID
+	}
+
 	if err := s.repo.Create(ctx, item); err != nil {
 		return nil, err
 	}
