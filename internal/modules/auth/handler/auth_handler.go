@@ -49,9 +49,19 @@ func (h *authHandler) Register(c *gin.Context) {
 	}
 
 	authResp := dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken: accessToken,
 	}
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		MaxAge:   7 * 24 * 60 * 60,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	response.OK(c, authResp)
 }
@@ -83,16 +93,15 @@ func (h *authHandler) Login(c *gin.Context) {
 		Name:     "refresh_token",
 		Value:    refreshToken,
 		Path:     "/",
-		Domain:   "despensa-digital-backend-production.up.railway.app",
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		MaxAge:   7 * 24 * 60 * 60,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	authResp := dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken: accessToken,
 	}
 
 	response.OK(c, authResp)
@@ -119,7 +128,6 @@ func (h *authHandler) Logout(c *gin.Context) {
 		Name:     "refresh_token",
 		Value:    "",
 		Path:     "/",
-		Domain:   "despensa-digital-backend-production.up.railway.app",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
@@ -153,18 +161,17 @@ func (h *authHandler) RefreshToken(c *gin.Context) {
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
-		Value:    refreshToken,
+		Value:    newRefreshToken,
 		Path:     "/",
-		Domain:   "despensa-digital-backend-production.up.railway.app",
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		MaxAge:   7 * 24 * 60 * 60,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	resp := dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken,
+		AccessToken: accessToken,
 	}
 
 	response.OK(c, resp)
