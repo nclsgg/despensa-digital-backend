@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"crypto/pbkdf2"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,7 +12,6 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/config"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
-	"github.com/nclsgg/despensa-digital/backend/internal/utils"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -29,80 +26,16 @@ func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis
 	return &authService{repo, cfg, redis}
 }
 
-func (s *authService) Register(ctx context.Context, user *model.User) (string, string, error) {
-	if !utils.IsEmailValid(user.Email) {
-		return "", "", errors.New("invalid email")
-	}
-
-	hashedPassword, err := s.HashPassword(user.Password)
-	if err != nil {
-		return "", "", err
-	}
-	user.Password = hashedPassword
-
-	if err := s.repo.CreateUser(ctx, user); err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return "", "", errors.New("email already registered")
-		}
-
-		return "", "", errors.New("failed to create user")
-	}
-
-	accessToken, err := s.GenerateAccessToken(user)
-	if err != nil {
-		return "", "", errors.New("failed to generate token")
-	}
-
-	refreshToken, err := s.GenerateRefreshToken(ctx, user.ID)
-	if err != nil {
-		return "", "", errors.New("failed to generate refresh token")
-	}
-
-	return accessToken, refreshToken, nil
-}
-
-func (s *authService) Login(ctx context.Context, email, password string) (string, string, error) {
-	user, err := s.repo.GetUser(ctx, email)
-	if err != nil {
-		return "", "", err
-	}
-
-	hashedPassword, err := s.HashPassword(password)
-	if err != nil {
-		return "", "", err
-	}
-
-	if user.Password != hashedPassword {
-		return "", "", errors.New("invalid password")
-	}
-
-	accessToken, err := s.GenerateAccessToken(user)
-	if err != nil {
-		return "", "", errors.New("failed to generate token")
-	}
-
-	refreshToken, err := s.GenerateRefreshToken(ctx, user.ID)
-	if err != nil {
-		return "", "", errors.New("failed to generate refresh token")
-	}
-
-	return accessToken, refreshToken, nil
-}
-
-func (s *authService) Logout(ctx context.Context, refreshToken string) error {
-	if refreshToken == "" {
-		return nil
-	}
-	key := fmt.Sprintf("refresh_token:%s", refreshToken)
-	return s.redis.Del(ctx, key).Err()
-}
-
+// HashPassword creates a hash of the password (simplified for OAuth users)
 func (s *authService) HashPassword(password string) (string, error) {
-	hashedPassword, _ := pbkdf2.Key(sha1.New, password, []byte("salt"), 4096, 32)
+	hasher := sha256.New()
+	hasher.Write([]byte(password + "salt"))
+	hashedPassword := hasher.Sum(nil)
 	encoded := base64.StdEncoding.EncodeToString(hashedPassword)
 	return encoded, nil
 }
 
+// GenerateAccessToken generates JWT token for OAuth authenticated users
 func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
 	jwtExpiration, err := time.ParseDuration(s.cfg.JWTExpiration)
 	if err != nil {
@@ -123,48 +56,50 @@ func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
 	return token.SignedString([]byte(s.cfg.JWTSecret))
 }
 
-func (s *authService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
-	token := uuid.NewString()
-	key := fmt.Sprintf("refresh_token:%s", token)
-
-	err := s.redis.Set(ctx, key, userID.String(), time.Hour*24*7).Err()
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
+// OAuth specific methods
+func (s *authService) GetUserByEmail(email string) (*model.User, error) {
+	return s.repo.GetUser(context.Background(), email)
 }
 
-func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (string, string, error) {
-	key := fmt.Sprintf("refresh_token:%s", refreshToken)
-
-	userIDStr, err := s.redis.Get(ctx, key).Result()
-	if err != nil {
-		return "", "", err
+func (s *authService) CreateUserOAuth(user *model.User) error {
+	// For OAuth users, we don't need password hashing since they authenticate via OAuth
+	// But we'll set a placeholder password just in case
+	if user.Password == "" {
+		hashedPassword, err := s.HashPassword("oauth-no-password")
+		if err != nil {
+			return err
+		}
+		user.Password = hashedPassword
 	}
 
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return "", "", errors.New("invalid user id in token")
+	if err := s.repo.CreateUser(context.Background(), user); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return errors.New("email already registered")
+		}
+		return errors.New("failed to create user")
 	}
 
+	return nil
+}
+
+// CompleteProfile updates user profile with first/last name and marks profile as complete
+func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) error {
 	user, err := s.repo.GetUserById(ctx, userID)
 	if err != nil {
-		return "", "", err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user not found")
+		}
+		return err
 	}
 
-	// Invalida o token antigo
-	s.redis.Del(ctx, key)
+	user.FirstName = firstName
+	user.LastName = lastName
+	user.ProfileCompleted = true
 
-	accessToken, err := s.GenerateAccessToken(user)
+	err = s.repo.UpdateUser(ctx, user)
 	if err != nil {
-		return "", "", err
+		return err
 	}
 
-	newRefreshToken, err := s.GenerateRefreshToken(ctx, user.ID)
-	if err != nil {
-		return "", "", err
-	}
-
-	return accessToken, newRefreshToken, nil
+	return nil
 }

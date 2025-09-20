@@ -37,3 +37,7 @@ func (r *userRepository) GetAllUsers(ctx context.Context) ([]model.User, error) 
 	err := r.db.WithContext(ctx).Find(&users).Error
 	return users, err
 }
+
+func (r *userRepository) UpdateUser(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}

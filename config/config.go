@@ -18,6 +18,13 @@ type Config struct {
 	RedisUsername string
 	Port          string
 	CorsOrigin    string
+	
+	// OAuth Config
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleCallbackURL  string
+	FrontendURL        string
+	SessionSecret      string
 }
 
 func LoadConfig() *Config {
@@ -33,8 +40,15 @@ func LoadConfig() *Config {
 		RedisPassword: os.Getenv("REDIS_PASSWORD"),
 		RedisDB:       os.Getenv("REDIS_DB"),
 		RedisUsername: os.Getenv("REDIS_USERNAME"),
-		Port:          getEnv("PORT", "5310"),
+		Port:          getEnv("PORT", "3030"),
 		CorsOrigin:    getEnv("CORS_ORIGIN", "http://localhost:3000"),
+		
+		// OAuth Config
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleCallbackURL:  getEnv("GOOGLE_CALLBACK_URL", "http://localhost:3030/auth/oauth/google/callback"),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
+		SessionSecret:      getEnv("SESSION_SECRET", "your-session-secret-here"),
 	}
 
 	return cfg

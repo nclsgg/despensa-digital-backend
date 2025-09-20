@@ -44,3 +44,11 @@ func (r *itemRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID)
 	}
 	return items, nil
 }
+
+func (r *itemRepository) CountByPantryID(ctx context.Context, pantryID uuid.UUID) (int, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Item{}).Where("pantry_id = ?", pantryID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}

@@ -23,6 +23,7 @@ type ItemRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Item, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListByPantryID(ctx context.Context, pantryID uuid.UUID) ([]*model.Item, error)
+	CountByPantryID(ctx context.Context, pantryID uuid.UUID) (int, error)
 }
 
 type ItemCategoryService interface {

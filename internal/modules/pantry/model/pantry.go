@@ -32,6 +32,11 @@ type PantryUserInfo struct {
 	Role   string    `json:"role"`
 }
 
+type PantryWithItemCount struct {
+	Pantry    *Pantry `json:"pantry"`
+	ItemCount int     `json:"item_count"`
+}
+
 func (u *Pantry) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()

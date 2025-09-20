@@ -32,7 +32,7 @@ func (h *pantryHandler) CreatePantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	pantry, err := h.service.CreatePantry(c.Request.Context(), req.Name, userID)
@@ -56,25 +56,26 @@ func (h *pantryHandler) CreatePantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries [get]
 func (h *pantryHandler) ListPantries(c *gin.Context) {
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID, ok := rawID.(uuid.UUID)
 	if !ok {
 		response.BadRequest(c, "Invalid user ID")
 		return
 	}
 
-	pantries, err := h.service.ListPantriesByUser(c.Request.Context(), userID)
+	pantries, err := h.service.ListPantriesWithItemCount(c.Request.Context(), userID)
 	if err != nil {
 		response.InternalError(c, "Failed to list pantries")
 		return
 	}
 
 	var res []dto.PantryResponse
-	for _, pantry := range pantries {
+	for _, pantryWithCount := range pantries {
 		res = append(res, dto.PantryResponse{
-			ID:      pantry.ID,
-			Name:    pantry.Name,
-			OwnerID: pantry.OwnerID,
+			ID:        pantryWithCount.Pantry.ID,
+			Name:      pantryWithCount.Pantry.Name,
+			OwnerID:   pantryWithCount.Pantry.OwnerID,
+			ItemCount: pantryWithCount.ItemCount,
 		})
 	}
 
@@ -96,19 +97,20 @@ func (h *pantryHandler) GetPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
-	pantry, err := h.service.GetPantry(c.Request.Context(), pantryID, userID)
+	pantryWithCount, err := h.service.GetPantryWithItemCount(c.Request.Context(), pantryID, userID)
 	if err != nil {
 		response.Fail(c, 404, "NOT_FOUND", "Pantry not found or user has no access")
 		return
 	}
 
 	res := dto.PantryResponse{
-		ID:      pantry.ID,
-		Name:    pantry.Name,
-		OwnerID: pantry.OwnerID,
+		ID:        pantryWithCount.Pantry.ID,
+		Name:      pantryWithCount.Pantry.Name,
+		OwnerID:   pantryWithCount.Pantry.OwnerID,
+		ItemCount: pantryWithCount.ItemCount,
 	}
 	response.OK(c, res)
 }
@@ -136,7 +138,7 @@ func (h *pantryHandler) UpdatePantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	err = h.service.UpdatePantry(c.Request.Context(), pantryID, userID, req.Name)
@@ -163,7 +165,7 @@ func (h *pantryHandler) DeletePantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	err = h.service.DeletePantry(c.Request.Context(), pantryID, userID)
@@ -199,7 +201,7 @@ func (h *pantryHandler) AddUserToPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	ownerID := rawID.(uuid.UUID)
 
 	err = h.service.AddUserToPantry(c.Request.Context(), pantryID, ownerID, req.Email)
@@ -235,7 +237,7 @@ func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	ownerID := rawID.(uuid.UUID)
 
 	err = h.service.RemoveUserFromPantry(c.Request.Context(), pantryID, ownerID, req.Email)
@@ -263,7 +265,7 @@ func (h *pantryHandler) ListUsersInPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	users, err := h.service.ListUsersInPantry(c.Request.Context(), pantryID, userID)

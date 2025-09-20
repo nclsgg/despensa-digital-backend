@@ -11,7 +11,9 @@ import (
 type PantryService interface {
 	CreatePantry(ctx context.Context, name string, ownerID uuid.UUID) (*model.Pantry, error)
 	GetPantry(ctx context.Context, pantryID, userID uuid.UUID) (*model.Pantry, error)
+	GetPantryWithItemCount(ctx context.Context, pantryID, userID uuid.UUID) (*model.PantryWithItemCount, error)
 	ListPantriesByUser(ctx context.Context, userID uuid.UUID) ([]*model.Pantry, error)
+	ListPantriesWithItemCount(ctx context.Context, userID uuid.UUID) ([]*model.PantryWithItemCount, error)
 	DeletePantry(ctx context.Context, pantryID, userID uuid.UUID) error
 	UpdatePantry(ctx context.Context, pantryID, userID uuid.UUID, newName string) error
 	AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error

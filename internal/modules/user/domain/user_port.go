@@ -12,15 +12,18 @@ type UserRepository interface {
 	GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
+	UpdateUser(ctx context.Context, user *model.User) error
 }
 
 type UserService interface {
 	GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
+	CompleteProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) error
 }
 
 type UserHandler interface {
 	GetUser(c *gin.Context)
 	GetCurrentUser(c *gin.Context)
 	GetAllUsers(c *gin.Context)
+	CompleteProfile(c *gin.Context)
 }

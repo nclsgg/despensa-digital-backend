@@ -1,19 +1,26 @@
 # 🥫 Despensa Digital
 
-A **Despensa Digital** é uma aplicação SaaS para organização e controle de itens em casa ou pequenos comércios, com foco em:
+A **Despensa Digital** é uma aplicação SaaS para organização e contro### 🔐 Autenticação OAuth
+
+| Método | Rota                    | Descrição                         |
+|--------|------------------------|-----------------------------------|
+| GET    | `/oauth/login/:provider`| Iniciar fluxo OAuth (Google/GitHub)|
+| GET    | `/oauth/callback`       | Callback do provedor OAuth         |
+| POST   | `/oauth/logout`         | Logout e remoção do token          |
+| POST   | `/oauth/refresh`        | Gera novo access token             |ens em casa ou pequenos comércios, com foco em:
 
 - Gerenciar sua despensa (itens que você tem)
 - Criar listas de compras automáticas com base no que falta
 - Descobrir receitas com base no que está disponível
-- Autenticação segura com JWT + Refresh Token
+- Autenticação OAuth2 com provedores populares
 - Documentação Swagger completa e API padronizada
 
 ---
 
 ## 🚀 Tecnologias
 
-- **Backend:** Golang (Gin, GORM, JWT, Redis, PostgreSQL)
-- **Frontend:** React (em desenvolvimento)
+- **Backend:** Golang (Gin, GORM, OAuth2, JWT, Redis, PostgreSQL)
+- **Frontend:** React + Next.js
 - **Mobile:** (a definir)
 - **Infra:** Docker (em breve)
 
@@ -21,7 +28,7 @@ A **Despensa Digital** é uma aplicação SaaS para organização e controle de 
 
 ## 🧠 Principais Funcionalidades
 
-- ✅ Cadastro e login com JWT + refresh token (cookies seguros)
+- ✅ Autenticação OAuth2 (Google, GitHub) com JWT refresh tokens
 - ✅ Controle de usuários com roles (admin, user)
 - ✅ Gestão de itens da despensa
 - ✅ Listagem de usuários (admin)

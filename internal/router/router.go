@@ -31,26 +31,34 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		})
 	})
 
-	// Auth routes
+	// User repository (needed for auth middleware)
+	userRepoInstance := userRepo.NewUserRepository(db)
+
+	// OAuth-only auth routes
 	authRepoInstance := authRepo.NewAuthRepository(db)
 	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg, redis)
-	authHandlerInstance := authHandler.NewAuthHandler(authServiceInstance)
+
+	// OAuth handler
+	oauthHandlerInstance := authHandler.NewOAuthHandler(authServiceInstance, cfg)
+	oauthHandlerInstance.InitOAuth()
 
 	authGroup := r.Group("/auth")
 	{
-		authGroup.POST("/register", authHandlerInstance.Register)
-		authGroup.POST("/login", authHandlerInstance.Login)
-		authGroup.POST("/logout", authHandlerInstance.Logout)
-		authGroup.POST("/refresh", authHandlerInstance.RefreshToken)
+		// OAuth routes only
+		authGroup.GET("/oauth/:provider", oauthHandlerInstance.OAuthLogin)
+		authGroup.GET("/oauth/:provider/callback", oauthHandlerInstance.OAuthCallback)
+
+		// Protected profile completion route
+		authGroup.PATCH("/complete-profile", middleware.AuthMiddleware(cfg, userRepoInstance), oauthHandlerInstance.CompleteProfile)
 	}
 
 	// User routes
-	userRepoInstance := userRepo.NewUserRepository(db)
 	userServiceInstance := userService.NewUserService(userRepoInstance)
 	userHandlerInstance := userHandler.NewUserHandler(userServiceInstance)
 
 	userGroup := r.Group("/user")
 	userGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	userGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
 		userGroup.GET("/:id", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetUser)
 		userGroup.GET("/me", userHandlerInstance.GetCurrentUser)
@@ -59,11 +67,14 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 
 	// Pantry routes
 	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
-	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance, userRepoInstance)
+	// Item repository needed for pantry statistics
+	itemRepoInstance := itemRepo.NewItemRepository(db)
+	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance, userRepoInstance, itemRepoInstance)
 	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance)
 
 	pantryGroup := r.Group("/pantries")
 	pantryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	pantryGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
 		pantryGroup.POST("", pantryHandlerInstance.CreatePantry)
 		pantryGroup.GET("", pantryHandlerInstance.ListPantries)
@@ -75,13 +86,13 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		pantryGroup.GET("/:id/users", pantryHandlerInstance.ListUsersInPantry)
 	}
 
-	// Item routes
-	itemRepoInstance := itemRepo.NewItemRepository(db)
+	// Item routes - reuse the itemRepoInstance
 	itemServiceInstance := itemService.NewItemService(itemRepoInstance, pantryRepoInstance)
 	itemHandlerInstance := itemHandler.NewItemHandler(itemServiceInstance)
 
 	itemGroup := r.Group("/items")
 	itemGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	itemGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
 		itemGroup.POST("", itemHandlerInstance.CreateItem)
 		itemGroup.GET("/pantry/:id", itemHandlerInstance.ListItems)
@@ -97,6 +108,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 
 	itemCategoryGroup := r.Group("/item-categories")
 	itemCategoryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	itemCategoryGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
 		itemCategoryGroup.POST("", itemCategoryHandlerInstance.CreateItemCategory)
 		itemCategoryGroup.POST("/default", middleware.RoleMiddleware([]string{"admin"}), itemCategoryHandlerInstance.CreateDefaultItemCategory)

@@ -34,7 +34,7 @@ func (h *itemCategoryHandler) CreateItemCategory(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	category, err := h.service.Create(c.Request.Context(), input, userID)
@@ -62,7 +62,7 @@ func (h *itemCategoryHandler) CreateDefaultItemCategory(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	category, err := h.service.CreateDefault(c.Request.Context(), input, userID)
@@ -99,7 +99,7 @@ func (h *itemCategoryHandler) CloneDefaultCategoryToPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	category, err := h.service.CloneDefaultCategoryToPantry(c.Request.Context(), defaultCategoryID, pantryID, userID)
@@ -128,7 +128,7 @@ func (h *itemCategoryHandler) UpdateItemCategory(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	var input dto.UpdateItemCategoryDTO
@@ -161,7 +161,7 @@ func (h *itemCategoryHandler) GetItemCategory(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	category, err := h.service.FindByID(c.Request.Context(), id, userID)
@@ -187,7 +187,7 @@ func (h *itemCategoryHandler) DeleteItemCategory(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
@@ -214,7 +214,7 @@ func (h *itemCategoryHandler) ListItemCategoriesByPantry(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	categories, err := h.service.ListByPantryID(c.Request.Context(), pantryID, userID)
@@ -233,7 +233,7 @@ func (h *itemCategoryHandler) ListItemCategoriesByPantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /item-categories/user [get]
 func (h *itemCategoryHandler) ListItemCategoriesByUser(c *gin.Context) {
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	categories, err := h.service.ListByUserID(c.Request.Context(), userID)

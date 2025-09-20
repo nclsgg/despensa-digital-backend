@@ -34,7 +34,7 @@ func (h *itemHandler) CreateItem(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	item, err := h.service.Create(c.Request.Context(), input, userID)
@@ -63,7 +63,7 @@ func (h *itemHandler) UpdateItem(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	var input dto.UpdateItemDTO
@@ -96,7 +96,7 @@ func (h *itemHandler) GetItem(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	item, err := h.service.FindByID(c.Request.Context(), id, userID)
@@ -122,7 +122,7 @@ func (h *itemHandler) DeleteItem(c *gin.Context) {
 		return
 	}
 
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
@@ -142,7 +142,7 @@ func (h *itemHandler) DeleteItem(c *gin.Context) {
 // @Router /items [get]
 func (h *itemHandler) ListItems(c *gin.Context) {
 	pantryIDStr := c.Param("id")
-	rawID, _ := c.Get("user_id")
+	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 	if pantryIDStr == "" {
 		response.BadRequest(c, "Pantry ID is required")

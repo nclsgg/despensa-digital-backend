@@ -11,9 +11,10 @@ type UpdatePantryRequest struct {
 }
 
 type PantryResponse struct {
-	ID      uuid.UUID `json:"id"`
-	Name    string    `json:"name"`
-	OwnerID uuid.UUID `json:"owner_id"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	OwnerID   uuid.UUID `json:"owner_id"`
+	ItemCount int       `json:"item_count"`
 }
 
 type ModifyPantryUserRequest struct {

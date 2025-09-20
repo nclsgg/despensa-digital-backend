@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	itemDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	userDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
@@ -14,6 +15,7 @@ import (
 type pantryService struct {
 	repo     domain.PantryRepository
 	userRepo userDomain.UserRepository
+	itemRepo itemDomain.ItemRepository
 }
 
 var (
@@ -24,10 +26,12 @@ var (
 func NewPantryService(
 	repo domain.PantryRepository,
 	userRepo userDomain.UserRepository,
+	itemRepo itemDomain.ItemRepository,
 ) domain.PantryService {
 	return &pantryService{
 		repo:     repo,
 		userRepo: userRepo,
+		itemRepo: itemRepo,
 	}
 }
 
@@ -71,8 +75,48 @@ func (s *pantryService) GetPantry(ctx context.Context, pantryID uuid.UUID, userI
 	return pantry, nil
 }
 
+func (s *pantryService) GetPantryWithItemCount(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) (*model.PantryWithItemCount, error) {
+	pantry, err := s.GetPantry(ctx, pantryID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	itemCount, err := s.itemRepo.CountByPantryID(ctx, pantryID)
+	if err != nil {
+		// If we can't get item count, default to 0 instead of failing
+		itemCount = 0
+	}
+
+	return &model.PantryWithItemCount{
+		Pantry:    pantry,
+		ItemCount: itemCount,
+	}, nil
+}
+
 func (s *pantryService) ListPantriesByUser(ctx context.Context, userID uuid.UUID) ([]*model.Pantry, error) {
 	return s.repo.GetByUser(ctx, userID)
+}
+
+func (s *pantryService) ListPantriesWithItemCount(ctx context.Context, userID uuid.UUID) ([]*model.PantryWithItemCount, error) {
+	pantries, err := s.repo.GetByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*model.PantryWithItemCount
+	for _, pantry := range pantries {
+		itemCount, err := s.itemRepo.CountByPantryID(ctx, pantry.ID)
+		if err != nil {
+			// If we can't get item count, default to 0 instead of failing
+			itemCount = 0
+		}
+		result = append(result, &model.PantryWithItemCount{
+			Pantry:    pantry,
+			ItemCount: itemCount,
+		})
+	}
+
+	return result, nil
 }
 
 func (s *pantryService) UpdatePantry(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID, newName string) error {

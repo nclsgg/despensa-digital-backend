@@ -23,3 +23,16 @@ func (s *userService) GetUserById(ctx context.Context, id uuid.UUID) (*model.Use
 func (s *userService) GetAllUsers(ctx context.Context) ([]model.User, error) {
 	return s.repo.GetAllUsers(ctx)
 }
+
+func (s *userService) CompleteProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) error {
+	user, err := s.repo.GetUserById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	user.FirstName = firstName
+	user.LastName = lastName
+	user.ProfileCompleted = true
+
+	return s.repo.UpdateUser(ctx, user)
+}

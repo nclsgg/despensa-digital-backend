@@ -47,3 +47,8 @@ func BadRequest(c *gin.Context, message string) {
 func InternalError(c *gin.Context, message string) {
 	Fail(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message)
 }
+
+func Unauthorized(c *gin.Context, message string) {
+	Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", message)
+}
+

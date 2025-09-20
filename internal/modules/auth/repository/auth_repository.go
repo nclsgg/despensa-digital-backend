@@ -38,3 +38,7 @@ func (r *authRepository) GetUser(ctx context.Context, email string) (*model.User
 	}
 	return &user, nil
 }
+
+func (r *authRepository) UpdateUser(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}
