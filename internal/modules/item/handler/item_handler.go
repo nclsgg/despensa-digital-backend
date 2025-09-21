@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -158,6 +159,52 @@ func (h *itemHandler) ListItems(c *gin.Context) {
 	items, err := h.service.ListByPantryID(c.Request.Context(), pantryID, userID)
 	if err != nil {
 		response.InternalError(c, "Failed to list items")
+		return
+	}
+
+	response.OK(c, items)
+}
+
+// @Summary Filter items by pantry ID with filters
+// @Tags Items
+// @Accept json
+// @Produce json
+// @Param id path string true "Pantry ID"
+// @Param body body dto.ItemFilterDTO true "Filter criteria"
+// @Success 200 {array} []dto.ItemResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /items/pantry/{id}/filter [post]
+func (h *itemHandler) FilterItems(c *gin.Context) {
+	pantryIDStr := c.Param("id")
+	if pantryIDStr == "" {
+		response.BadRequest(c, "Pantry ID is required")
+		return
+	}
+
+	pantryID, err := uuid.Parse(pantryIDStr)
+	if err != nil {
+		response.BadRequest(c, "Invalid Pantry ID")
+		return
+	}
+
+	var filters dto.ItemFilterDTO
+	if err := c.ShouldBindJSON(&filters); err != nil {
+		response.BadRequest(c, "Invalid filter parameters")
+		return
+	}
+	fmt.Print(filters)
+
+	rawID, _ := c.Get("userID")
+	userID := rawID.(uuid.UUID)
+
+	items, err := h.service.FilterByPantryID(c.Request.Context(), pantryID, filters, userID)
+	if err != nil {
+		if err.Error() == "user not authorized for this operation" {
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+			return
+		}
+		response.InternalError(c, "Failed to filter items")
 		return
 	}
 

@@ -15,6 +15,7 @@ type ItemService interface {
 	FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Item, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*model.Item, error)
+	FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*model.Item, error)
 }
 
 type ItemRepository interface {
@@ -23,6 +24,7 @@ type ItemRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Item, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListByPantryID(ctx context.Context, pantryID uuid.UUID) ([]*model.Item, error)
+	FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO) ([]*model.Item, error)
 	CountByPantryID(ctx context.Context, pantryID uuid.UUID) (int, error)
 }
 
@@ -52,6 +54,7 @@ type ItemHandler interface {
 	GetItem(ctx *gin.Context)
 	DeleteItem(ctx *gin.Context)
 	ListItems(ctx *gin.Context)
+	FilterItems(ctx *gin.Context)
 }
 
 type ItemCategoryHandler interface {

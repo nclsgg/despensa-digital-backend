@@ -136,3 +136,22 @@ func (s *itemService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, us
 
 	return items, nil
 }
+
+func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*model.Item, error) {
+	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
+	if err != nil || !isMember {
+		return nil, errors.New("user not authorized for this operation")
+	}
+
+	items, err := s.repo.FilterByPantryID(ctx, pantryID, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calcular total_price para cada item
+	for _, item := range items {
+		item.TotalPrice = item.Quantity * item.PricePerUnit
+	}
+
+	return items, nil
+}

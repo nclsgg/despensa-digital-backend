@@ -21,6 +21,16 @@ type UpdateItemDTO struct {
 	ExpiresAt    string   `json:"expires_at,omitempty"`
 }
 
+type ItemFilterDTO struct {
+	MinPrice      *float64 `json:"min_price,omitempty"`
+	MaxPrice      *float64 `json:"max_price,omitempty"`
+	ExpiresUntil  string   `json:"expires_until,omitempty"`
+	Name          *string  `json:"name,omitempty"`
+	CategoryID    *string  `json:"category_id,omitempty"`
+	SortBy        *string  `json:"sort_by,omitempty"`        // "price", "expires_at", "category", "name"
+	SortDirection *string  `json:"sort_direction,omitempty"` // "asc", "desc"
+}
+
 type ItemResponse struct {
 	ID           string     `json:"id"`
 	PantryID     string     `json:"pantry_id"`

@@ -96,6 +96,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	{
 		itemGroup.POST("", itemHandlerInstance.CreateItem)
 		itemGroup.GET("/pantry/:id", itemHandlerInstance.ListItems)
+		itemGroup.POST("/pantry/:id/filter", itemHandlerInstance.FilterItems)
 		itemGroup.GET("/:id", itemHandlerInstance.GetItem)
 		itemGroup.PUT("/:id", itemHandlerInstance.UpdateItem)
 		itemGroup.DELETE("/:id", itemHandlerInstance.DeleteItem)

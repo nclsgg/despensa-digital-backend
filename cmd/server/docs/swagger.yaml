@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  dto.CompleteProfileRequest:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+    required:
+    - first_name
+    - last_name
+    type: object
   dto.CreateDefaultItemCategoryDTO:
     properties:
       color:
@@ -74,6 +84,25 @@ definitions:
       updated_at:
         type: string
     type: object
+  dto.ItemFilterDTO:
+    properties:
+      category_id:
+        type: string
+      expires_until:
+        type: string
+      max_price:
+        type: number
+      min_price:
+        type: number
+      name:
+        type: string
+      sort_by:
+        description: '"price", "expires_at", "category", "name"'
+        type: string
+      sort_direction:
+        description: '"asc", "desc"'
+        type: string
+    type: object
   dto.ItemResponse:
     properties:
       added_by:
@@ -101,16 +130,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  dto.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    - password
-    type: object
   dto.ModifyPantryUserRequest:
     properties:
       email:
@@ -122,6 +141,8 @@ definitions:
     properties:
       id:
         type: string
+      item_count:
+        type: integer
       name:
         type: string
       owner_id:
@@ -135,19 +156,6 @@ definitions:
         type: string
       user_id:
         type: string
-    type: object
-  dto.RegisterRequest:
-    properties:
-      email:
-        type: string
-      name:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    - name
-    - password
     type: object
   dto.UpdateItemCategoryDTO:
     properties:
@@ -177,6 +185,16 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+    required:
+    - first_name
+    - last_name
     type: object
   response.APIError:
     properties:
@@ -255,17 +273,67 @@ info:
   title: Despensa Digital API
   version: "1.0"
 paths:
-  /auth/login:
-    post:
+  /auth/complete-profile:
+    patch:
       consumes:
       - application/json
       parameters:
-      - description: User credentials
+      - description: Profile data
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.LoginRequest'
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Complete user profile
+      tags:
+      - Auth
+  /auth/oauth/{provider}:
+    get:
+      parameters:
+      - description: OAuth Provider (google)
+        in: path
+        name: provider
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirect to OAuth provider
+      summary: Initiate OAuth login
+      tags:
+      - OAuth
+  /auth/oauth/{provider}/callback:
+    get:
+      parameters:
+      - description: OAuth Provider (google)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: OAuth code
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state
+        in: query
+        name: state
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -281,82 +349,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.APIResponse'
-      summary: User login
+      summary: OAuth callback
       tags:
-      - Authentication
-  /auth/logout:
-    post:
-      consumes:
-      - application/json
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.MessageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-      summary: User logout
-      tags:
-      - Authentication
-  /auth/refresh:
-    post:
-      consumes:
-      - application/json
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.LoginSuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-      summary: Refresh access token
-      tags:
-      - Authentication
-  /auth/register:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: User data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.MessageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.APIResponse'
-      summary: Register a new user
-      tags:
-      - Authentication
+      - OAuth
   /item-categories:
     post:
       consumes:
@@ -692,6 +687,44 @@ paths:
       summary: Update an item
       tags:
       - Items
+  /items/pantry/{id}/filter:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Pantry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Filter criteria
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ItemFilterDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/dto.ItemResponse'
+              type: array
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: Filter items by pantry ID with filters
+      tags:
+      - Items
   /pantries:
     get:
       produces:
@@ -998,6 +1031,38 @@ paths:
           schema:
             $ref: '#/definitions/response.APIResponse'
       summary: List all users (admin only)
+      tags:
+      - User
+  /user/complete-profile:
+    put:
+      consumes:
+      - application/json
+      description: Updates user's first name and last name
+      parameters:
+      - description: Profile completion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CompleteProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete user profile after OAuth registration
       tags:
       - User
   /user/me:
