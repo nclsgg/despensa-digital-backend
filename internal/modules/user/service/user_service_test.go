@@ -39,6 +39,11 @@ func (m *mockUserRepository) GetAllUsers(ctx context.Context) ([]model.User, err
 	return nil, args.Error(1)
 }
 
+func (m *mockUserRepository) UpdateUser(ctx context.Context, user *model.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
 func TestGetUser(t *testing.T) {
 	repo := new(mockUserRepository)
 	service := service.NewUserService(repo)
@@ -46,9 +51,10 @@ func TestGetUser(t *testing.T) {
 	userID := uuid.New()
 
 	userMock := &model.User{
-		ID:    userID,
-		Name:  "Test",
-		Email: "test@example.com",
+		ID:        userID,
+		FirstName: "Test",
+		LastName:  "User",
+		Email:     "test@example.com",
 	}
 
 	repo.On("GetUserById", userID).Return(userMock, nil)
@@ -70,14 +76,16 @@ func TestGetAllUsers(t *testing.T) {
 
 	usersMock := []model.User{
 		{
-			ID:    uuid.New(),
-			Name:  "Test",
-			Email: "test1@example.com",
+			ID:        uuid.New(),
+			FirstName: "Test",
+			LastName:  "User1",
+			Email:     "test1@example.com",
 		},
 		{
-			ID:    uuid.New(),
-			Name:  "Test 2",
-			Email: "text2@example.com",
+			ID:        uuid.New(),
+			FirstName: "Test",
+			LastName:  "User2",
+			Email:     "text2@example.com",
 		},
 	}
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +40,11 @@ func (m *mockAuthRepository) GetUserById(ctx context.Context, userID uuid.UUID) 
 	return nil, args.Error(1)
 }
 
+func (m *mockAuthRepository) UpdateUser(ctx context.Context, user *model.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
 func getTestRedisClient(t *testing.T) (*redis.Client, *miniredis.Miniredis) {
 	mr, err := miniredis.Run()
 	assert.NoError(t, err)
@@ -59,6 +63,26 @@ func getTestConfig() *config.Config {
 	}
 }
 
+// Testes comentados pois os métodos foram removidos da interface AuthService
+// após refatoração para usar apenas OAuth
+
+func TestHashPassword(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	password := "minhasenha123"
+	hashedPassword, err := authSvc.HashPassword(password)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, hashedPassword)
+	assert.NotEqual(t, password, hashedPassword)
+}
+
+/*
 func TestRegister_Success(t *testing.T) {
 	redisClient, mr := getTestRedisClient(t)
 	defer mr.Close()
@@ -180,3 +204,4 @@ func TestRefreshToken(t *testing.T) {
 
 	repo.AssertExpectations(t)
 }
+*/

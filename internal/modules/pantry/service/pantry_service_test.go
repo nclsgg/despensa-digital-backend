@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	itemDto "github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
+	itemModel "github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
 	userModel "github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
@@ -70,6 +72,45 @@ type mockUserRepository struct {
 	mock.Mock
 }
 
+type mockItemRepository struct {
+	mock.Mock
+}
+
+func (m *mockItemRepository) Create(ctx context.Context, item *itemModel.Item) error {
+	args := m.Called(ctx, item)
+	return args.Error(0)
+}
+
+func (m *mockItemRepository) Update(ctx context.Context, item *itemModel.Item) error {
+	args := m.Called(ctx, item)
+	return args.Error(0)
+}
+
+func (m *mockItemRepository) FindByID(ctx context.Context, id uuid.UUID) (*itemModel.Item, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*itemModel.Item), args.Error(1)
+}
+
+func (m *mockItemRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *mockItemRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID) ([]*itemModel.Item, error) {
+	args := m.Called(ctx, pantryID)
+	return args.Get(0).([]*itemModel.Item), args.Error(1)
+}
+
+func (m *mockItemRepository) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters itemDto.ItemFilterDTO) ([]*itemModel.Item, error) {
+	args := m.Called(ctx, pantryID, filters)
+	return args.Get(0).([]*itemModel.Item), args.Error(1)
+}
+
+func (m *mockItemRepository) CountByPantryID(ctx context.Context, pantryID uuid.UUID) (int, error) {
+	args := m.Called(ctx, pantryID)
+	return args.Int(0), args.Error(1)
+}
+
 func (m *mockUserRepository) GetUserById(ctx context.Context, id uuid.UUID) (*userModel.User, error) {
 	args := m.Called(ctx, id)
 	if usr, ok := args.Get(0).(*userModel.User); ok {
@@ -94,10 +135,16 @@ func (m *mockUserRepository) GetAllUsers(ctx context.Context) ([]userModel.User,
 	return nil, args.Error(1)
 }
 
+func (m *mockUserRepository) UpdateUser(ctx context.Context, user *userModel.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
 func TestCreatePantry(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
@@ -120,7 +167,8 @@ func TestCreatePantry(t *testing.T) {
 func TestAddUserToPantry(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -142,7 +190,8 @@ func TestAddUserToPantry(t *testing.T) {
 func TestRemoveUserFromPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -162,7 +211,8 @@ func TestRemoveUserFromPantry_Success(t *testing.T) {
 func TestRemoveUserFromPantry_BlockOwner(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -179,7 +229,8 @@ func TestRemoveUserFromPantry_BlockOwner(t *testing.T) {
 func TestGetPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -203,7 +254,8 @@ func TestGetPantry_Success(t *testing.T) {
 func TestGetPantry_NotMember(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -219,7 +271,8 @@ func TestGetPantry_NotMember(t *testing.T) {
 func TestListUsersInPantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -242,7 +295,8 @@ func TestListUsersInPantry_Success(t *testing.T) {
 func TestListUsersInPantry_Unauthorized(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -258,7 +312,8 @@ func TestListUsersInPantry_Unauthorized(t *testing.T) {
 func TestUpdatePantry_Success(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
@@ -283,7 +338,8 @@ func TestUpdatePantry_Success(t *testing.T) {
 func TestUpdatePantry_Unauthorized(t *testing.T) {
 	repo := new(mockPantryRepository)
 	userRepo := new(mockUserRepository)
-	svc := service.NewPantryService(repo, userRepo)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
 
 	ctx := context.Background()
 	pantryID := uuid.New()
