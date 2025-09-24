@@ -21,6 +21,15 @@ import (
 	userHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/user/handler"
 	userRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
 	userService "github.com/nclsgg/despensa-digital/backend/internal/modules/user/service"
+
+	// LLM module imports
+	llmHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/handler"
+	llmService "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
+
+	// Recipe module imports
+	recipeHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/handler"
+	recipeService "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/service"
+
 	middleware "github.com/nclsgg/despensa-digital/backend/internal/router/middlewares"
 )
 
@@ -42,7 +51,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	oauthHandlerInstance := authHandler.NewOAuthHandler(authServiceInstance, cfg)
 	oauthHandlerInstance.InitOAuth()
 
-	authGroup := r.Group("/auth")
+	authGroup := r.Group("/api/v1/auth")
 	{
 		// OAuth routes only
 		authGroup.GET("/oauth/:provider", oauthHandlerInstance.OAuthLogin)
@@ -56,7 +65,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	userServiceInstance := userService.NewUserService(userRepoInstance)
 	userHandlerInstance := userHandler.NewUserHandler(userServiceInstance)
 
-	userGroup := r.Group("/user")
+	userGroup := r.Group("/api/v1/user")
 	userGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	userGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
@@ -65,14 +74,26 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		userGroup.GET("/all", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetAllUsers)
 	}
 
-	// Pantry routes
+	// LLM routes (needed for recipe handlers)
+	llmServiceInstance := llmService.NewLLMService()
+	llmHandlerInstance := llmHandler.NewLLMHandler(llmServiceInstance)
+
+	// Recipe routes setup (needed for pantry ingredients endpoint)
 	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
-	// Item repository needed for pantry statistics
 	itemRepoInstance := itemRepo.NewItemRepository(db)
 	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance, userRepoInstance, itemRepoInstance)
+
+	recipeServiceInstance := recipeService.NewRecipeService(
+		llmServiceInstance,
+		itemRepoInstance,
+		pantryServiceInstance,
+	)
+	recipeHandlerInstance := recipeHandler.NewRecipeHandler(recipeServiceInstance, llmServiceInstance)
+
+	// Pantry routes
 	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance)
 
-	pantryGroup := r.Group("/pantries")
+	pantryGroup := r.Group("/api/v1/pantries")
 	pantryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	pantryGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
@@ -84,13 +105,14 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		pantryGroup.POST("/:id/users", pantryHandlerInstance.AddUserToPantry)
 		pantryGroup.DELETE("/:id/users", pantryHandlerInstance.RemoveUserFromPantry)
 		pantryGroup.GET("/:id/users", pantryHandlerInstance.ListUsersInPantry)
+		pantryGroup.GET("/:id/ingredients", recipeHandlerInstance.GetAvailableIngredients)
 	}
 
 	// Item routes - reuse the itemRepoInstance
 	itemServiceInstance := itemService.NewItemService(itemRepoInstance, pantryRepoInstance)
 	itemHandlerInstance := itemHandler.NewItemHandler(itemServiceInstance)
 
-	itemGroup := r.Group("/items")
+	itemGroup := r.Group("/api/v1/items")
 	itemGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	itemGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
@@ -107,7 +129,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	itemCategoryServiceInstance := itemService.NewItemCategoryService(itemCategoryRepoInstance, pantryRepoInstance)
 	itemCategoryHandlerInstance := itemHandler.NewItemCategoryHandler(itemCategoryServiceInstance)
 
-	itemCategoryGroup := r.Group("/item-categories")
+	itemCategoryGroup := r.Group("/api/v1/item-categories")
 	itemCategoryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	itemCategoryGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
@@ -119,6 +141,33 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		itemCategoryGroup.PUT("/:id", itemCategoryHandlerInstance.UpdateItemCategory)
 		itemCategoryGroup.DELETE("/:id", itemCategoryHandlerInstance.DeleteItemCategory)
 		itemCategoryGroup.GET("/user", itemCategoryHandlerInstance.ListItemCategoriesByUser)
+	}
+
+	llmGroup := r.Group("/api/v1/llm")
+	llmGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	llmGroup.Use(middleware.ProfileCompleteMiddleware())
+	{
+		llmGroup.POST("/chat", llmHandlerInstance.ProcessChatRequest)
+		llmGroup.POST("/process", llmHandlerInstance.ProcessLLMRequest)
+		llmGroup.POST("/prompt/build", llmHandlerInstance.BuildPrompt)
+		llmGroup.GET("/providers/status", llmHandlerInstance.GetProviderStatus)
+		llmGroup.POST("/providers/config", llmHandlerInstance.ConfigureProvider)
+		llmGroup.GET("/providers/available", llmHandlerInstance.GetAvailableProviders)
+		llmGroup.POST("/providers/switch", llmHandlerInstance.SwitchProvider)
+		llmGroup.POST("/providers/test", llmHandlerInstance.TestProvider)
+	}
+
+	recipeGroup := r.Group("/api/v1/recipes")
+	recipeGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	recipeGroup.Use(middleware.ProfileCompleteMiddleware())
+	{
+		recipeGroup.POST("/generate", recipeHandlerInstance.GenerateRecipe)
+		recipeGroup.GET("/ingredients", recipeHandlerInstance.GetAvailableIngredients)
+		recipeGroup.GET("/pantries/:pantry_id/ingredients", recipeHandlerInstance.GetAvailableIngredients)
+		recipeGroup.POST("/chat", recipeHandlerInstance.ChatWithLLM)
+		recipeGroup.GET("/providers", recipeHandlerInstance.GetLLMProviders)
+		recipeGroup.POST("/providers/set", recipeHandlerInstance.SetLLMProvider)
+		recipeGroup.POST("/tokens/estimate", recipeHandlerInstance.EstimateTokens)
 	}
 
 	// Swagger routes

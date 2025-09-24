@@ -1,0 +1,274 @@
+package handler
+
+import (
+	"context"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
+	recipeService "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/service"
+	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+)
+
+// RecipeHandler handles recipe-related HTTP requests
+type RecipeHandler struct {
+	recipeService *recipeService.RecipeServiceImpl
+	llmService    *service.LLMServiceImpl
+}
+
+// NewRecipeHandler creates a new recipe handler
+func NewRecipeHandler(
+	recipeService *recipeService.RecipeServiceImpl,
+	llmService *service.LLMServiceImpl,
+) *RecipeHandler {
+	return &RecipeHandler{
+		recipeService: recipeService,
+		llmService:    llmService,
+	}
+}
+
+// GenerateRecipe godoc
+// @Summary Generate a recipe based on available ingredients
+// @Description Generate a personalized recipe using LLM based on pantry ingredients and preferences
+// @Tags recipes
+// @Accept json
+// @Produce json
+// @Param request body dto.RecipeRequestDTO true "Recipe generation request"
+// @Success 200 {object} response.Response{data=dto.RecipeResponseDTO}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/generate [post]
+// @Security BearerAuth
+func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
+	var request dto.RecipeRequestDTO
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
+		return
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	userID, ok := userIDInterface.(string)
+	if !ok {
+		// Try to convert from uuid.UUID
+		if userUUID, ok := userIDInterface.(uuid.UUID); ok {
+			userID = userUUID.String()
+		} else {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+	}
+
+	// Generate recipe
+	recipe, err := h.recipeService.GenerateRecipe(context.Background(), &request, userID)
+	if err != nil {
+		response.InternalError(c, "Erro ao gerar receita: "+err.Error())
+		return
+	}
+
+	response.OK(c, recipe)
+}
+
+// GetAvailableIngredients godoc
+// @Summary Get available ingredients from pantry with quantities
+// @Description Get list of ingredients available in a specific pantry with quantity and unit information
+// @Tags recipes
+// @Produce json
+// @Param pantry_id path string true "Pantry ID" format(uuid)
+// @Success 200 {object} response.Response{data=[]service.IngredientInfo}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/pantries/{pantry_id}/ingredients [get]
+// @Security BearerAuth
+func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
+	// Get pantry ID from URL
+	pantryID := c.Param("id")
+	if pantryID == "" {
+		pantryID = c.Param("pantry_id") // fallback for recipe-specific endpoints
+	}
+	if pantryID == "" {
+		response.BadRequest(c, "pantry_id não fornecido")
+		return
+	}
+
+	// Validate pantry ID format
+	if _, err := uuid.Parse(pantryID); err != nil {
+		response.BadRequest(c, "ID da despensa inválido: "+err.Error())
+		return
+	}
+
+	// Get user ID from context
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	userID, ok := userIDInterface.(string)
+	if !ok {
+		if userUUID, ok := userIDInterface.(uuid.UUID); ok {
+			userID = userUUID.String()
+		} else {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+	}
+
+	// Get available ingredients
+	ingredients, err := h.recipeService.GetAvailableIngredients(context.Background(), pantryID, userID)
+	if err != nil {
+		response.InternalError(c, "Erro ao obter ingredientes: "+err.Error())
+		return
+	}
+
+	response.OK(c, ingredients)
+}
+
+// ChatWithLLM godoc
+// @Summary Chat with LLM for recipe suggestions
+// @Description Send a direct message to LLM for recipe advice and cooking tips
+// @Tags recipes,llm
+// @Accept json
+// @Produce json
+// @Param request body dto.LLMRequestDTO true "LLM chat request"
+// @Success 200 {object} response.Response{data=dto.LLMResponseDTO}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/chat [post]
+// @Security BearerAuth
+func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
+	var request dto.LLMRequestDTO
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
+		return
+	}
+
+	// Process LLM request
+	response_data, err := h.llmService.ProcessRequest(context.Background(), &request)
+	if err != nil {
+		response.InternalError(c, "Erro na requisição ao LLM: "+err.Error())
+		return
+	}
+
+	response.OK(c, response_data)
+}
+
+// GetLLMProviders godoc
+// @Summary Get available LLM providers
+// @Description Get list of available LLM providers and current active provider
+// @Tags llm
+// @Produce json
+// @Success 200 {object} response.Response{data=map[string]interface{}}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/llm/providers [get]
+// @Security BearerAuth
+func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
+	providers := h.llmService.GetAvailableProviders()
+	currentProvider := h.llmService.GetCurrentProvider()
+
+	providerInfo, err := h.llmService.GetProviderInfo()
+	if err != nil {
+		providerInfo = map[string]interface{}{
+			"error": err.Error(),
+		}
+	}
+
+	data := map[string]interface{}{
+		"available_providers": providers,
+		"current_provider":    currentProvider,
+		"provider_info":       providerInfo,
+	}
+
+	response.OK(c, data)
+}
+
+// SetLLMProvider godoc
+// @Summary Set active LLM provider
+// @Description Change the active LLM provider
+// @Tags llm
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Provider name" example({"provider": "openai"})
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/llm/providers [put]
+// @Security BearerAuth
+func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
+	var request map[string]string
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
+		return
+	}
+
+	provider, exists := request["provider"]
+	if !exists || provider == "" {
+		response.BadRequest(c, "provider não fornecido")
+		return
+	}
+
+	if err := h.llmService.SetProvider(provider); err != nil {
+		response.BadRequest(c, "Erro ao definir provedor: "+err.Error())
+		return
+	}
+
+	response.OK(c, map[string]string{
+		"provider": provider,
+	})
+}
+
+// EstimateTokens godoc
+// @Summary Estimate tokens for text
+// @Description Estimate the number of tokens a text will use
+// @Tags llm
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Text to analyze" example({"text": "Hello, world!"})
+// @Success 200 {object} response.Response{data=map[string]interface{}}
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/llm/estimate-tokens [post]
+// @Security BearerAuth
+func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
+	var request map[string]string
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
+		return
+	}
+
+	text, exists := request["text"]
+	if !exists {
+		response.BadRequest(c, "text não fornecido")
+		return
+	}
+
+	tokens, err := h.llmService.EstimateTokens(text)
+	if err != nil {
+		response.InternalError(c, "Erro ao estimar tokens: "+err.Error())
+		return
+	}
+
+	data := map[string]interface{}{
+		"text":             text,
+		"estimated_tokens": tokens,
+		"characters":       len(text),
+		"words":            len(strings.Fields(text)),
+	}
+
+	response.OK(c, data)
+}
