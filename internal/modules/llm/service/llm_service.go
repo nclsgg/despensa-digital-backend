@@ -339,6 +339,25 @@ func (s *LLMServiceImpl) GetProviderInfo() (map[string]interface{}, error) {
 
 // initializeDefaultProviders configura automaticamente provedores com base nas variáveis de ambiente
 func (s *LLMServiceImpl) initializeDefaultProviders() {
+	// Verifica se Gemini está configurado (configurado primeiro para ser o padrão)
+	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
+		geminiConfig := &model.LLMConfig{
+			Provider:    model.ProviderGemini,
+			APIKey:      apiKey,
+			Model:       "gemini-1.5-flash",
+			MaxTokens:   2000,
+			Temperature: 0.7,
+			Timeout:     30 * time.Second,
+		}
+
+		err := s.AddProviderConfig("gemini", geminiConfig)
+		if err == nil {
+			log.Println("Gemini provider configurado automaticamente")
+		} else {
+			log.Printf("Erro ao configurar Gemini provider automaticamente: %v", err)
+		}
+	}
+
 	// Verifica se OpenAI está configurado
 	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
 		openaiConfig := &model.LLMConfig{
@@ -355,25 +374,6 @@ func (s *LLMServiceImpl) initializeDefaultProviders() {
 			log.Println("OpenAI provider configurado automaticamente")
 		} else {
 			log.Printf("Erro ao configurar OpenAI provider automaticamente: %v", err)
-		}
-	}
-
-	// Verifica se Gemini está configurado
-	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
-		geminiConfig := &model.LLMConfig{
-			Provider:    model.ProviderGemini,
-			APIKey:      apiKey,
-			Model:       "gemini-1.5-flash",
-			MaxTokens:   2000,
-			Temperature: 0.7,
-			Timeout:     30 * time.Second,
-		}
-
-		err := s.AddProviderConfig("gemini", geminiConfig)
-		if err == nil {
-			log.Println("Gemini provider configurado automaticamente")
-		} else {
-			log.Printf("Erro ao configurar Gemini provider automaticamente: %v", err)
 		}
 	}
 

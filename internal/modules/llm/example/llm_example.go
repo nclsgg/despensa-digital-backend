@@ -16,11 +16,11 @@ func main() {
 	// 1. Criar serviço LLM
 	llmService := service.NewLLMService()
 
-	// 2. Configurar provedor OpenAI
-	openAIConfig := &model.LLMConfig{
-		Provider:      model.ProviderOpenAI,
-		APIKey:        "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", // Em produção, usar variáveis de ambiente
-		Model:         "gpt-3.5-turbo",
+	// 2. Configurar provedor Gemini como padrão
+	geminiConfig := &model.LLMConfig{
+		Provider:      model.ProviderGemini,
+		APIKey:        "AIzaSyC7eWrQc4jNKoFRkxWN2bD3Zq1GlHo8i4M", // Em produção, usar variáveis de ambiente
+		Model:         "gemini-1.5-flash",
 		MaxTokens:     2000,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -28,12 +28,12 @@ func main() {
 	}
 
 	// 3. Adicionar configuração do provedor
-	if err := llmService.AddProviderConfig("openai", openAIConfig); err != nil {
-		log.Printf("Erro ao configurar provedor OpenAI: %v", err)
+	if err := llmService.AddProviderConfig("gemini", geminiConfig); err != nil {
+		log.Printf("Erro ao configurar provedor Gemini: %v", err)
 		return
 	}
 
-	fmt.Printf("✅ Provedor OpenAI configurado com sucesso\n")
+	fmt.Printf("✅ Provedor Gemini configurado com sucesso\n")
 	fmt.Printf("📋 Provedores disponíveis: %v\n", llmService.GetAvailableProviders())
 	fmt.Printf("🎯 Provedor ativo: %s\n", llmService.GetCurrentProvider())
 

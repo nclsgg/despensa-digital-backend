@@ -8,6 +8,8 @@ import (
 	authModel "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 	itemModel "github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
+	profileModel "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/model"
+	shoppingListModel "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -48,6 +50,9 @@ func MigrateItems(db *gorm.DB) {
 		&pantryModel.PantryUser{},
 		&itemModel.Item{},
 		&itemModel.ItemCategory{},
+		&profileModel.Profile{},
+		&shoppingListModel.ShoppingList{},
+		&shoppingListModel.ShoppingListItem{},
 	)
 	if err != nil {
 		log.Fatalf("Error migrating database: %v", err)

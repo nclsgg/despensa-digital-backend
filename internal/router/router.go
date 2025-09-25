@@ -30,6 +30,16 @@ import (
 	recipeHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/handler"
 	recipeService "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/service"
 
+	// Profile module imports
+	profileHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/handler"
+	profileRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/repository"
+	profileService "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/service"
+
+	// Shopping list module imports
+	shoppingListHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/handler"
+	shoppingListRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/repository"
+	shoppingListService "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/service"
+
 	middleware "github.com/nclsgg/despensa-digital/backend/internal/router/middlewares"
 )
 
@@ -82,6 +92,22 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
 	itemRepoInstance := itemRepo.NewItemRepository(db)
 	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance, userRepoInstance, itemRepoInstance)
+
+	// Profile module setup
+	profileRepoInstance := profileRepo.NewProfileRepository(db)
+	profileServiceInstance := profileService.NewProfileService(profileRepoInstance)
+	profileHandlerInstance := profileHandler.NewProfileHandler(profileServiceInstance)
+
+	// Shopping list module setup
+	shoppingListRepoInstance := shoppingListRepo.NewShoppingListRepository(db)
+	shoppingListServiceInstance := shoppingListService.NewShoppingListService(
+		shoppingListRepoInstance,
+		pantryRepoInstance,
+		itemRepoInstance,
+		profileRepoInstance,
+		llmServiceInstance,
+	)
+	shoppingListHandlerInstance := shoppingListHandler.NewShoppingListHandler(shoppingListServiceInstance)
 
 	recipeServiceInstance := recipeService.NewRecipeService(
 		llmServiceInstance,
@@ -155,6 +181,31 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 		llmGroup.GET("/providers/available", llmHandlerInstance.GetAvailableProviders)
 		llmGroup.POST("/providers/switch", llmHandlerInstance.SwitchProvider)
 		llmGroup.POST("/providers/test", llmHandlerInstance.TestProvider)
+	}
+
+	// Profile routes
+	profileGroup := r.Group("/api/v1/profile")
+	profileGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	{
+		profileGroup.POST("", profileHandlerInstance.CreateProfile)
+		profileGroup.GET("", profileHandlerInstance.GetProfile)
+		profileGroup.PUT("", profileHandlerInstance.UpdateProfile)
+		profileGroup.DELETE("", profileHandlerInstance.DeleteProfile)
+	}
+
+	// Shopping list routes
+	shoppingListGroup := r.Group("/api/v1/shopping-lists")
+	shoppingListGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	shoppingListGroup.Use(middleware.ProfileCompleteMiddleware())
+	{
+		shoppingListGroup.POST("", shoppingListHandlerInstance.CreateShoppingList)
+		shoppingListGroup.GET("", shoppingListHandlerInstance.GetShoppingLists)
+		shoppingListGroup.GET("/:id", shoppingListHandlerInstance.GetShoppingList)
+		shoppingListGroup.PUT("/:id", shoppingListHandlerInstance.UpdateShoppingList)
+		shoppingListGroup.DELETE("/:id", shoppingListHandlerInstance.DeleteShoppingList)
+		shoppingListGroup.PUT("/:id/items/:itemId", shoppingListHandlerInstance.UpdateShoppingListItem)
+		shoppingListGroup.DELETE("/:id/items/:itemId", shoppingListHandlerInstance.DeleteShoppingListItem)
+		shoppingListGroup.POST("/generate", shoppingListHandlerInstance.GenerateAIShoppingList)
 	}
 
 	recipeGroup := r.Group("/api/v1/recipes")
