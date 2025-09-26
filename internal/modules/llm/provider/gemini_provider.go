@@ -246,7 +246,7 @@ func (p *GeminiProvider) getModel(requestModel string) string {
 	if p.config.Model != "" {
 		return p.config.Model
 	}
-	return "gemini-1.5-flash"
+	return "gemini-2.0-flash"
 }
 
 // GetProviderName retorna o nome do provedor
@@ -259,7 +259,7 @@ func (p *GeminiProvider) GetModel() string {
 	if p.config.Model != "" {
 		return p.config.Model
 	}
-	return "gemini-1.5-flash"
+	return "gemini-2.0-flash"
 }
 
 // EstimateTokens estima a quantidade de tokens

@@ -344,7 +344,7 @@ func (s *LLMServiceImpl) initializeDefaultProviders() {
 		geminiConfig := &model.LLMConfig{
 			Provider:    model.ProviderGemini,
 			APIKey:      apiKey,
-			Model:       "gemini-1.5-flash",
+			Model:       "gemini-2.0-flash",
 			MaxTokens:   2000,
 			Temperature: 0.7,
 			Timeout:     30 * time.Second,
