@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
+	"gorm.io/gorm"
 )
 
 type userService struct {
@@ -17,22 +20,40 @@ func NewUserService(repo domain.UserRepository) domain.UserService {
 }
 
 func (s *userService) GetUserById(ctx context.Context, id uuid.UUID) (*model.User, error) {
-	return s.repo.GetUserById(ctx, id)
+	user, err := s.repo.GetUserById(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	return user, nil
 }
 
 func (s *userService) GetAllUsers(ctx context.Context) ([]model.User, error) {
-	return s.repo.GetAllUsers(ctx)
+	users, err := s.repo.GetAllUsers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	return users, nil
 }
 
 func (s *userService) CompleteProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) error {
 	user, err := s.repo.GetUserById(ctx, id)
 	if err != nil {
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrUserNotFound
+		}
+		return fmt.Errorf("get user: %w", err)
 	}
 
 	user.FirstName = firstName
 	user.LastName = lastName
 	user.ProfileCompleted = true
 
-	return s.repo.UpdateUser(ctx, user)
+	if err := s.repo.UpdateUser(ctx, user); err != nil {
+		return fmt.Errorf("update user: %w", err)
+	}
+
+	return nil
 }

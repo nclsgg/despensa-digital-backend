@@ -1,19 +1,25 @@
 package handler
 
 import (
+	"errors"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	itemDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 )
 
 type pantryHandler struct {
-	service domain.PantryService
+	service     domain.PantryService
+	itemService itemDomain.ItemService
 }
 
-func NewPantryHandler(service domain.PantryService) domain.PantryHandler {
-	return &pantryHandler{service}
+func NewPantryHandler(service domain.PantryService, itemService itemDomain.ItemService) domain.PantryHandler {
+	return &pantryHandler{service: service, itemService: itemService}
 }
 
 // @Summary Create a new pantry
@@ -21,7 +27,7 @@ func NewPantryHandler(service domain.PantryService) domain.PantryHandler {
 // @Accept json
 // @Produce json
 // @Param body body dto.CreatePantryRequest true "Pantry data"
-// @Success 201 {object} dto.PantryResponse
+// @Success 201 {object} dto.PantrySummaryResponse
 // @Failure 400 {object} response.APIResponse
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries [post]
@@ -41,18 +47,22 @@ func (h *pantryHandler) CreatePantry(c *gin.Context) {
 		return
 	}
 
-	res := dto.PantryResponse{
-		ID:      pantry.ID,
-		Name:    pantry.Name,
-		OwnerID: pantry.OwnerID,
+	summary := dto.PantrySummaryResponse{
+		ID:        pantry.ID.String(),
+		Name:      pantry.Name,
+		OwnerID:   pantry.OwnerID.String(),
+		ItemCount: 0,
+		CreatedAt: pantry.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: pantry.UpdatedAt.Format(time.RFC3339),
 	}
-	response.Success(c, 201, res)
+
+	response.Success(c, 201, summary)
 }
 
 // @Summary List all pantries from the current user
 // @Tags Pantry
 // @Produce json
-// @Success 200 {array} dto.PantryResponse
+// @Success 200 {array} dto.PantrySummaryResponse
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries [get]
 func (h *pantryHandler) ListPantries(c *gin.Context) {
@@ -69,13 +79,16 @@ func (h *pantryHandler) ListPantries(c *gin.Context) {
 		return
 	}
 
-	var res []dto.PantryResponse
+	var res []dto.PantrySummaryResponse
 	for _, pantryWithCount := range pantries {
-		res = append(res, dto.PantryResponse{
-			ID:        pantryWithCount.Pantry.ID,
-			Name:      pantryWithCount.Pantry.Name,
-			OwnerID:   pantryWithCount.Pantry.OwnerID,
+		pantry := pantryWithCount.Pantry
+		res = append(res, dto.PantrySummaryResponse{
+			ID:        pantry.ID.String(),
+			Name:      pantry.Name,
+			OwnerID:   pantry.OwnerID.String(),
 			ItemCount: pantryWithCount.ItemCount,
+			CreatedAt: pantry.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: pantry.UpdatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -86,7 +99,7 @@ func (h *pantryHandler) ListPantries(c *gin.Context) {
 // @Tags Pantry
 // @Produce json
 // @Param id path string true "Pantry ID"
-// @Success 200 {object} dto.PantryResponse
+// @Success 200 {object} dto.PantryDetailResponse
 // @Failure 400 {object} response.APIResponse
 // @Failure 404 {object} response.APIResponse
 // @Router /pantries/{id} [get]
@@ -106,12 +119,47 @@ func (h *pantryHandler) GetPantry(c *gin.Context) {
 		return
 	}
 
-	res := dto.PantryResponse{
-		ID:        pantryWithCount.Pantry.ID,
-		Name:      pantryWithCount.Pantry.Name,
-		OwnerID:   pantryWithCount.Pantry.OwnerID,
-		ItemCount: pantryWithCount.ItemCount,
+	items, err := h.itemService.ListByPantryID(c.Request.Context(), pantryID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, itemDomain.ErrUnauthorized):
+			response.Fail(c, 403, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to list pantry items")
+		}
+		return
 	}
+
+	itemResponses := make([]dto.PantryItemResponse, 0, len(items))
+	for _, item := range items {
+		itemResponses = append(itemResponses, dto.PantryItemResponse{
+			ID:             item.ID,
+			PantryID:       item.PantryID,
+			Name:           item.Name,
+			Quantity:       item.Quantity,
+			Unit:           item.Unit,
+			PricePerUnit:   item.PricePerUnit,
+			TotalPrice:     item.TotalPrice,
+			AddedBy:        item.AddedBy,
+			CategoryID:     item.CategoryID,
+			ExpirationDate: item.ExpiresAt,
+			CreatedAt:      item.CreatedAt,
+			UpdatedAt:      item.UpdatedAt,
+		})
+	}
+
+	res := dto.PantryDetailResponse{
+		PantrySummaryResponse: dto.PantrySummaryResponse{
+			ID:        pantryWithCount.Pantry.ID.String(),
+			Name:      pantryWithCount.Pantry.Name,
+			OwnerID:   pantryWithCount.Pantry.OwnerID.String(),
+			ItemCount: pantryWithCount.ItemCount,
+			CreatedAt: pantryWithCount.Pantry.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: pantryWithCount.Pantry.UpdatedAt.Format(time.RFC3339),
+		},
+		Items: itemResponses,
+	}
+
 	response.OK(c, res)
 }
 
@@ -274,14 +322,24 @@ func (h *pantryHandler) ListUsersInPantry(c *gin.Context) {
 		return
 	}
 
-	var res []dto.PantryUserResponse
+	responses := make([]dto.PantryUserResponse, 0, len(users))
 	for _, user := range users {
-		res = append(res, dto.PantryUserResponse{
-			UserID: user.UserID,
-			Email:  user.Email,
-			Role:   user.Role,
+		first := strings.TrimSpace(user.FirstName)
+		last := strings.TrimSpace(user.LastName)
+		name := strings.TrimSpace(strings.Join([]string{first, last}, " "))
+		if name == "" {
+			name = user.Email
+		}
+
+		responses = append(responses, dto.PantryUserResponse{
+			ID:       user.ID.String(),
+			UserID:   user.UserID.String(),
+			PantryID: user.PantryID.String(),
+			Email:    user.Email,
+			Name:     name,
+			Role:     user.Role,
 		})
 	}
 
-	response.OK(c, res)
+	response.OK(c, responses)
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -46,11 +47,12 @@ func (h *ProfileHandler) CreateProfile(c *gin.Context) {
 
 	profile, err := h.profileService.CreateProfile(c.Request.Context(), userID, input)
 	if err != nil {
-		if err.Error() == "profile already exists for user" {
+		switch {
+		case errors.Is(err, domain.ErrProfileAlreadyExists):
 			response.Fail(c, http.StatusConflict, "PROFILE_EXISTS", "Profile already exists")
-			return
+		default:
+			response.InternalError(c, "Failed to create profile")
 		}
-		response.InternalError(c, "Error creating profile: "+err.Error())
 		return
 	}
 
@@ -74,11 +76,12 @@ func (h *ProfileHandler) GetProfile(c *gin.Context) {
 
 	profile, err := h.profileService.GetProfileByUserID(c.Request.Context(), userID)
 	if err != nil {
-		if err.Error() == "profile not found" {
+		switch {
+		case errors.Is(err, domain.ErrProfileNotFound):
 			response.Fail(c, http.StatusNotFound, "PROFILE_NOT_FOUND", "Profile not found")
-			return
+		default:
+			response.InternalError(c, "Failed to fetch profile")
 		}
-		response.InternalError(c, "Error getting profile: "+err.Error())
 		return
 	}
 
@@ -111,11 +114,12 @@ func (h *ProfileHandler) UpdateProfile(c *gin.Context) {
 
 	profile, err := h.profileService.UpdateProfile(c.Request.Context(), userID, input)
 	if err != nil {
-		if err.Error() == "profile not found" {
+		switch {
+		case errors.Is(err, domain.ErrProfileNotFound):
 			response.Fail(c, http.StatusNotFound, "PROFILE_NOT_FOUND", "Profile not found")
-			return
+		default:
+			response.InternalError(c, "Failed to update profile")
 		}
-		response.InternalError(c, "Error updating profile: "+err.Error())
 		return
 	}
 
@@ -139,11 +143,12 @@ func (h *ProfileHandler) DeleteProfile(c *gin.Context) {
 
 	err := h.profileService.DeleteProfile(c.Request.Context(), userID)
 	if err != nil {
-		if err.Error() == "profile not found" {
+		switch {
+		case errors.Is(err, domain.ErrProfileNotFound):
 			response.Fail(c, http.StatusNotFound, "PROFILE_NOT_FOUND", "Profile not found")
-			return
+		default:
+			response.InternalError(c, "Failed to delete profile")
 		}
-		response.InternalError(c, "Error deleting profile: "+err.Error())
 		return
 	}
 

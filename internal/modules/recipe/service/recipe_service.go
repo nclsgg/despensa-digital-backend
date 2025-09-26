@@ -3,32 +3,34 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
-	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
+	itemDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
+	llmDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	llmSvc "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
+	pantrySvc "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
+	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
+	recipeDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/dto"
 )
 
-// RecipeServiceImpl implementa a interface RecipeService
-type RecipeServiceImpl struct {
+type recipeService struct {
 	llmService     *llmSvc.LLMServiceImpl
-	itemRepository domain.ItemRepository
+	itemRepository itemDomain.ItemRepository
 	pantryService  pantryDomain.PantryService
 	promptBuilder  *llmSvc.PromptBuilderImpl
 }
 
-// NewRecipeService cria uma nova instância do serviço de receitas
 func NewRecipeService(
 	llmService *llmSvc.LLMServiceImpl,
-	itemRepository domain.ItemRepository,
+	itemRepository itemDomain.ItemRepository,
 	pantryService pantryDomain.PantryService,
-) *RecipeServiceImpl {
-	return &RecipeServiceImpl{
+) recipeDomain.RecipeService {
+	return &recipeService{
 		llmService:     llmService,
 		itemRepository: itemRepository,
 		pantryService:  pantryService,
@@ -36,113 +38,96 @@ func NewRecipeService(
 	}
 }
 
-// GenerateRecipe gera uma receita baseada nos parâmetros
-func (rs *RecipeServiceImpl) GenerateRecipe(ctx context.Context, request *dto.RecipeRequestDTO, userID string) (*dto.RecipeResponseDTO, error) {
-	// Valida a requisição
-	if err := rs.ValidateRecipeRequest(request); err != nil {
-		return nil, fmt.Errorf("requisição inválida: %w", err)
+func (rs *recipeService) GenerateRecipe(ctx context.Context, request *llmDTO.RecipeRequestDTO, userID uuid.UUID) (*llmDTO.RecipeResponseDTO, error) {
+	if request == nil {
+		return nil, fmt.Errorf("%w: request payload is required", recipeDomain.ErrInvalidRequest)
 	}
 
-	// Obtém ingredientes disponíveis na despensa
-	availableIngredients, err := rs.GetAvailableIngredients(ctx, request.PantryID, userID)
-	fmt.Println("Available Ingredients:", availableIngredients)
+	request.SetDefaults()
+
+	pantryID, err := rs.validateRecipeRequest(request)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao obter ingredientes: %w", err)
+		return nil, err
+	}
+
+	availableIngredients, err := rs.GetAvailableIngredients(ctx, pantryID, userID)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(availableIngredients) == 0 {
-		return nil, fmt.Errorf("nenhum ingrediente disponível na despensa")
+		return nil, recipeDomain.ErrNoIngredients
 	}
 
-	// Prepara variáveis para o prompt
 	variables := rs.buildPromptVariables(request, availableIngredients)
-
-	// Obtém templates de prompt
 	templates := llmSvc.GetRecipePromptTemplates()
 
-	// Constrói prompts
 	systemPrompt, err := rs.promptBuilder.BuildSystemPrompt(templates.SystemPrompt, variables)
-	fmt.Println("System Prompt:", systemPrompt)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao construir system prompt: %w", err)
+		return nil, fmt.Errorf("%w: %v", recipeDomain.ErrInvalidRequest, err)
 	}
 
 	userPrompt, err := rs.promptBuilder.BuildUserPrompt(templates.UserPrompt, variables)
-	fmt.Println("User Prompt:", userPrompt)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao construir user prompt: %w", err)
+		return nil, fmt.Errorf("%w: %v", recipeDomain.ErrInvalidRequest, err)
 	}
 
-	// Cria opções para o LLM
 	options := map[string]interface{}{
 		"max_tokens":  2000,
 		"temperature": 0.7,
 		"top_p":       0.9,
 	}
 
-	// Cria requisição de chat
 	llmRequest := rs.llmService.CreateChatRequest(systemPrompt, userPrompt, options)
-	fmt.Println("LLM Request Messages:", llmRequest)
 
-	// Executa requisição ao LLM usando o provider especificado ou o ativo
-	var llmResponse *dto.LLMResponseDTO
-
+	var llmResponse *llmDTO.LLMResponseDTO
 	if request.Provider != "" {
-		// Usa provider específico da requisição
 		llmResponse, err = rs.llmService.ProcessRequestWithProvider(ctx, llmRequest, request.Provider)
 	} else {
-		// Usa provider ativo
 		llmResponse, err = rs.llmService.ProcessRequest(ctx, llmRequest)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("erro na requisição ao LLM: %w", err)
+		return nil, fmt.Errorf("%w: %v", recipeDomain.ErrLLMRequest, err)
 	}
 
-	// Parseia a resposta JSON do LLM
 	recipe, err := rs.parseRecipeResponse(llmResponse.Response)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao parsear resposta do LLM: %w", err)
+		return nil, fmt.Errorf("%w: %v", recipeDomain.ErrInvalidLLMResponse, err)
 	}
 
-	// Enriquece a receita com informações adicionais
 	recipe.ID = uuid.New().String()
-	recipe.GeneratedAt = time.Now().Format(time.RFC3339)
+	recipe.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
 
-	// Marca ingredientes como disponíveis ou não
 	rs.markIngredientAvailability(recipe, availableIngredients)
 
 	return recipe, nil
 }
 
-// IngredientInfo contém informações detalhadas de um ingrediente
-type IngredientInfo struct {
-	Name     string  `json:"name"`
-	Quantity float64 `json:"quantity"`
-	Unit     string  `json:"unit"`
-}
-
-// GetAvailableIngredients obtém ingredientes disponíveis na despensa com quantidades
-func (rs *RecipeServiceImpl) GetAvailableIngredients(ctx context.Context, pantryID string, userID string) ([]IngredientInfo, error) {
-	pantryUUID, err := uuid.Parse(pantryID)
-	if err != nil {
-		return nil, fmt.Errorf("ID da despensa inválido: %w", err)
+func (rs *recipeService) GetAvailableIngredients(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]recipeDTO.AvailableIngredientDTO, error) {
+	if _, err := rs.pantryService.GetPantry(ctx, pantryID, userID); err != nil {
+		switch {
+		case errors.Is(err, pantrySvc.ErrUnauthorized):
+			return nil, recipeDomain.ErrUnauthorized
+		case errors.Is(err, pantrySvc.ErrPantryNotFound):
+			return nil, recipeDomain.ErrPantryNotFound
+		default:
+			return nil, err
+		}
 	}
 
-	// Obtém itens da despensa
-	items, err := rs.itemRepository.ListByPantryID(ctx, pantryUUID)
+	items, err := rs.itemRepository.ListByPantryID(ctx, pantryID)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao obter itens da despensa: %w", err)
+		return nil, err
 	}
 
-	// Extrai informações detalhadas dos ingredientes
-	ingredients := make([]IngredientInfo, 0, len(items))
+	ingredients := make([]recipeDTO.AvailableIngredientDTO, 0, len(items))
 	for _, item := range items {
-		if item.Quantity > 0 { // Só inclui itens com quantidade disponível
-			ingredients = append(ingredients, IngredientInfo{
-				Name:     item.Name,
+		if item.Quantity > 0 {
+			ingredients = append(ingredients, recipeDTO.AvailableIngredientDTO{
+				Name:     strings.TrimSpace(item.Name),
 				Quantity: item.Quantity,
-				Unit:     item.Unit,
+				Unit:     strings.TrimSpace(item.Unit),
 			})
 		}
 	}
@@ -150,28 +135,26 @@ func (rs *RecipeServiceImpl) GetAvailableIngredients(ctx context.Context, pantry
 	return ingredients, nil
 }
 
-// SearchRecipesByIngredients busca receitas por ingredientes (placeholder)
-func (rs *RecipeServiceImpl) SearchRecipesByIngredients(ctx context.Context, ingredients []string, filters map[string]string) ([]dto.RecipeResponseDTO, error) {
-	// TODO: Implementar busca mais inteligente de receitas similares
-	return nil, fmt.Errorf("busca de receitas por ingredientes não implementada")
+func (rs *recipeService) SearchRecipesByIngredients(ctx context.Context, ingredients []string, filters map[string]string) ([]llmDTO.RecipeResponseDTO, error) {
+	return nil, fmt.Errorf("%w: search by ingredients not implemented", recipeDomain.ErrInvalidRequest)
 }
 
-// ValidateRecipeRequest valida uma requisição de receita
-func (rs *RecipeServiceImpl) ValidateRecipeRequest(request *dto.RecipeRequestDTO) error {
+func (rs *recipeService) validateRecipeRequest(request *llmDTO.RecipeRequestDTO) (uuid.UUID, error) {
 	if request.PantryID == "" {
-		return fmt.Errorf("ID da despensa é obrigatório")
+		return uuid.Nil, fmt.Errorf("%w: pantry_id is required", recipeDomain.ErrInvalidRequest)
 	}
 
-	if _, err := uuid.Parse(request.PantryID); err != nil {
-		return fmt.Errorf("ID da despensa inválido")
+	pantryID, err := uuid.Parse(request.PantryID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("%w: pantry_id must be a valid UUID", recipeDomain.ErrInvalidRequest)
 	}
 
-	if request.CookingTime < 0 || request.CookingTime > 480 {
-		return fmt.Errorf("tempo de cozimento deve estar entre 0 e 480 minutos")
+	if request.CookingTime != 0 && (request.CookingTime < 5 || request.CookingTime > 480) {
+		return uuid.Nil, fmt.Errorf("%w: cooking_time must be between 5 and 480 minutes", recipeDomain.ErrInvalidRequest)
 	}
 
 	if request.ServingSize < 0 || request.ServingSize > 20 {
-		return fmt.Errorf("número de porções deve estar entre 1 e 20")
+		return uuid.Nil, fmt.Errorf("%w: serving_size must be between 1 and 20", recipeDomain.ErrInvalidRequest)
 	}
 
 	validMealTypes := map[string]bool{
@@ -180,35 +163,35 @@ func (rs *RecipeServiceImpl) ValidateRecipeRequest(request *dto.RecipeRequestDTO
 		"dinner":    true,
 		"snack":     true,
 		"dessert":   true,
-		"":          true, // vazio é válido
+		"":          true,
 	}
 
-	if !validMealTypes[request.MealType] {
-		return fmt.Errorf("tipo de refeição inválido")
+	if !validMealTypes[strings.ToLower(strings.TrimSpace(request.MealType))] {
+		return uuid.Nil, fmt.Errorf("%w: meal_type is invalid", recipeDomain.ErrInvalidRequest)
 	}
 
 	validDifficulties := map[string]bool{
 		"easy":   true,
 		"medium": true,
 		"hard":   true,
-		"":       true, // vazio é válido
+		"":       true,
 	}
 
-	if !validDifficulties[request.Difficulty] {
-		return fmt.Errorf("dificuldade inválida")
+	if !validDifficulties[strings.ToLower(strings.TrimSpace(request.Difficulty))] {
+		return uuid.Nil, fmt.Errorf("%w: difficulty is invalid", recipeDomain.ErrInvalidRequest)
 	}
 
-	return nil
+	return pantryID, nil
 }
 
 // EnrichRecipeWithNutrition adiciona informações nutricionais (placeholder)
-func (rs *RecipeServiceImpl) EnrichRecipeWithNutrition(ctx context.Context, recipe *dto.RecipeResponseDTO) error {
+func (rs *recipeService) EnrichRecipeWithNutrition(ctx context.Context, recipe *llmDTO.RecipeResponseDTO) error {
 	// TODO: Implementar cálculo nutricional real
 	return nil
 }
 
 // buildPromptVariables constrói as variáveis para o prompt
-func (rs *RecipeServiceImpl) buildPromptVariables(request *dto.RecipeRequestDTO, ingredients []IngredientInfo) map[string]string {
+func (rs *recipeService) buildPromptVariables(request *llmDTO.RecipeRequestDTO, ingredients []recipeDTO.AvailableIngredientDTO) map[string]string {
 	// Formata ingredientes com quantidade e unidade
 	var formattedIngredients []string
 	for _, ingredient := range ingredients {
@@ -227,13 +210,13 @@ func (rs *RecipeServiceImpl) buildPromptVariables(request *dto.RecipeRequestDTO,
 	}
 
 	if request.MealType != "" {
-		variables["meal_type"] = request.MealType
+		variables["meal_type"] = strings.ToLower(strings.TrimSpace(request.MealType))
 	} else {
 		variables["meal_type"] = "qualquer"
 	}
 
 	if request.Difficulty != "" {
-		variables["difficulty"] = request.Difficulty
+		variables["difficulty"] = strings.ToLower(strings.TrimSpace(request.Difficulty))
 	} else {
 		variables["difficulty"] = "qualquer"
 	}
@@ -245,26 +228,26 @@ func (rs *RecipeServiceImpl) buildPromptVariables(request *dto.RecipeRequestDTO,
 	}
 
 	if request.Cuisine != "" {
-		variables["cuisine"] = request.Cuisine
+		variables["cuisine"] = strings.TrimSpace(request.Cuisine)
 	}
 
 	if len(request.DietaryRestrictions) > 0 {
-		variables["dietary_restrictions"] = strings.Join(request.DietaryRestrictions, ", ")
+		variables["dietary_restrictions"] = strings.Join(cleanStringSlice(request.DietaryRestrictions), ", ")
 	}
 
 	if request.Purpose != "" {
-		variables["purpose"] = request.Purpose
+		variables["purpose"] = strings.TrimSpace(request.Purpose)
 	}
 
 	if request.AdditionalNotes != "" {
-		variables["additional_notes"] = request.AdditionalNotes
+		variables["additional_notes"] = strings.TrimSpace(request.AdditionalNotes)
 	}
 
 	return variables
 }
 
 // parseRecipeResponse parseia a resposta JSON do LLM
-func (rs *RecipeServiceImpl) parseRecipeResponse(response string) (*dto.RecipeResponseDTO, error) {
+func (rs *recipeService) parseRecipeResponse(response string) (*llmDTO.RecipeResponseDTO, error) {
 	// Remove possíveis caracteres extras antes e depois do JSON
 	response = strings.TrimSpace(response)
 
@@ -282,7 +265,7 @@ func (rs *RecipeServiceImpl) parseRecipeResponse(response string) (*dto.RecipeRe
 	jsonResponse := response[startIndex : endIndex+1]
 
 	// Primeiro, tenta parsear diretamente
-	var recipe dto.RecipeResponseDTO
+	var recipe llmDTO.RecipeResponseDTO
 	if err := json.Unmarshal([]byte(jsonResponse), &recipe); err != nil {
 		// Se falhar, tenta corrigir problemas comuns
 		correctedJSON := rs.fixCommonJSONIssues(jsonResponse)
@@ -295,7 +278,7 @@ func (rs *RecipeServiceImpl) parseRecipeResponse(response string) (*dto.RecipeRe
 }
 
 // fixCommonJSONIssues corrige problemas comuns no JSON retornado pelo LLM
-func (rs *RecipeServiceImpl) fixCommonJSONIssues(jsonStr string) string {
+func (rs *recipeService) fixCommonJSONIssues(jsonStr string) string {
 	// Substitui frações matemáticas por decimais
 	jsonStr = strings.ReplaceAll(jsonStr, `"amount": 1/2`, `"amount": 0.5`)
 	jsonStr = strings.ReplaceAll(jsonStr, `"amount": 1/3`, `"amount": 0.33`)
@@ -316,16 +299,30 @@ func (rs *RecipeServiceImpl) fixCommonJSONIssues(jsonStr string) string {
 }
 
 // markIngredientAvailability marca quais ingredientes estão disponíveis
-func (rs *RecipeServiceImpl) markIngredientAvailability(recipe *dto.RecipeResponseDTO, availableIngredients []IngredientInfo) {
+func (rs *recipeService) markIngredientAvailability(recipe *llmDTO.RecipeResponseDTO, availableIngredients []recipeDTO.AvailableIngredientDTO) {
 	// Cria um mapa para busca rápida
 	availableMap := make(map[string]bool)
 	for _, ingredient := range availableIngredients {
-		availableMap[strings.ToLower(ingredient.Name)] = true
+		availableMap[strings.ToLower(strings.TrimSpace(ingredient.Name))] = true
 	}
 
 	// Marca disponibilidade para cada ingrediente da receita
 	for i := range recipe.Ingredients {
-		ingredientName := strings.ToLower(recipe.Ingredients[i].Name)
+		ingredientName := strings.ToLower(strings.TrimSpace(recipe.Ingredients[i].Name))
 		recipe.Ingredients[i].Available = availableMap[ingredientName]
 	}
+}
+
+func cleanStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	cleaned := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	return cleaned
 }

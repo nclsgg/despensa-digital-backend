@@ -10,6 +10,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
+	"gorm.io/gorm"
 )
 
 func parseTimePointer(dateStr string) *time.Time {
@@ -24,6 +25,51 @@ func parseTimePointer(dateStr string) *time.Time {
 	return &parsedTime
 }
 
+func formatTimePointer(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	formatted := t.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+func toItemResponse(item *model.Item) *dto.ItemResponse {
+	if item == nil {
+		return nil
+	}
+
+	item.TotalPrice = item.Quantity * item.PricePerUnit
+
+	var categoryID *string
+	if item.CategoryID != nil {
+		id := item.CategoryID.String()
+		categoryID = &id
+	}
+
+	return &dto.ItemResponse{
+		ID:           item.ID.String(),
+		PantryID:     item.PantryID.String(),
+		AddedBy:      item.AddedBy.String(),
+		Name:         item.Name,
+		Quantity:     item.Quantity,
+		Unit:         item.Unit,
+		PricePerUnit: item.PricePerUnit,
+		TotalPrice:   item.TotalPrice,
+		CategoryID:   categoryID,
+		ExpiresAt:    formatTimePointer(item.ExpiresAt),
+		CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:    item.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func toItemResponseList(items []*model.Item) []*dto.ItemResponse {
+	responses := make([]*dto.ItemResponse, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, toItemResponse(item))
+	}
+	return responses
+}
+
 type itemService struct {
 	repo       domain.ItemRepository
 	pantryRepo pantryDomain.PantryRepository
@@ -33,14 +79,21 @@ func NewItemService(repo domain.ItemRepository, pantryRepo pantryDomain.PantryRe
 	return &itemService{repo, pantryRepo}
 }
 
-func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userID uuid.UUID) (*model.Item, error) {
-	pantryID := uuid.MustParse(input.PantryID)
-
-	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
-	if err != nil || !isMember {
-		return nil, errors.New("user not authorized for this operation")
+func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error) {
+	pantryID, err := uuid.Parse(input.PantryID)
+	if err != nil {
+		return nil, domain.ErrInvalidPantry
 	}
 
+	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrUnauthorized
+	}
+
+	now := time.Now().UTC()
 	item := &model.Item{
 		ID:           uuid.New(),
 		PantryID:     pantryID,
@@ -51,96 +104,112 @@ func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userI
 		Unit:         input.Unit,
 		CategoryID:   nil,
 		ExpiresAt:    parseTimePointer(input.ExpiresAt),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if input.CategoryID != nil {
-		categoryID := uuid.MustParse(*input.CategoryID)
-		item.CategoryID = &categoryID
+		categoryID, parseErr := uuid.Parse(*input.CategoryID)
+		if parseErr == nil {
+			item.CategoryID = &categoryID
+		}
 	}
 
 	if err := s.repo.Create(ctx, item); err != nil {
 		return nil, err
 	}
 
-	item.TotalPrice = item.Quantity * item.PricePerUnit
-
-	return item, nil
+	return toItemResponse(item), nil
 }
 
-func (s *itemService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemDTO, userID uuid.UUID) (*model.Item, error) {
+func (s *itemService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
-	if err != nil || !isMember {
-		return nil, errors.New("user not authorized for this operation")
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrUnauthorized
 	}
 
 	item.ApplyUpdate(input)
-	item.UpdatedAt = time.Now()
+	item.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(ctx, item); err != nil {
 		return nil, err
 	}
 
-	item.TotalPrice = item.Quantity * item.PricePerUnit
-
-	return item, nil
+	return toItemResponse(item), nil
 }
 
-func (s *itemService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Item, error) {
+func (s *itemService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*dto.ItemResponse, error) {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrItemNotFound
+		}
 		return nil, err
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
-	if err != nil || !isMember {
-		return nil, errors.New("user not authorized for this operation")
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrUnauthorized
 	}
 
-	return item, nil
+	return toItemResponse(item), nil
 }
 
 func (s *itemService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrItemNotFound
+		}
 		return err
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
-	if err != nil || !isMember {
-		return errors.New("user not authorized for this operation")
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrUnauthorized
 	}
 
-	if item == nil {
-		return errors.New("item not found")
-	}
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *itemService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*model.Item, error) {
+func (s *itemService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*dto.ItemResponse, error) {
+	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrUnauthorized
+	}
+
 	items, err := s.repo.ListByPantryID(ctx, pantryID)
 	if err != nil {
 		return nil, err
 	}
 
-	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
-	if err != nil || !isMember {
-		return nil, errors.New("user not authorized for this operation")
-	}
-
-	return items, nil
+	return toItemResponseList(items), nil
 }
 
-func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*model.Item, error) {
+func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*dto.ItemResponse, error) {
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
-	if err != nil || !isMember {
-		return nil, errors.New("user not authorized for this operation")
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, domain.ErrUnauthorized
 	}
 
 	items, err := s.repo.FilterByPantryID(ctx, pantryID, filters)
@@ -148,10 +217,5 @@ func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, 
 		return nil, err
 	}
 
-	// Calcular total_price para cada item
-	for _, item := range items {
-		item.TotalPrice = item.Quantity * item.PricePerUnit
-	}
-
-	return items, nil
+	return toItemResponseList(items), nil
 }

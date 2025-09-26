@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,25 +34,23 @@ func NewOAuthHandler(service domain.AuthService, cfg *config.Config) *oauthHandl
 
 // InitOAuth initializes OAuth providers
 func (h *oauthHandler) InitOAuth() {
-	// Configure session store for Gothic with proper settings
 	key := h.cfg.SessionSecret
 	if len(key) < 32 {
 		key = "fallback-session-secret-for-development-only-32-chars"
 	}
 
 	store := sessions.NewCookieStore([]byte(key))
-	store.MaxAge(3600) // 1 hour for OAuth flow
+	store.MaxAge(3600)
 	store.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 	}
 
 	gothic.Store = store
 
-	// Configure OAuth providers
 	goth.UseProviders(
 		google.New(
 			h.cfg.GoogleClientID,
@@ -58,16 +59,14 @@ func (h *oauthHandler) InitOAuth() {
 		),
 	)
 
-	// Configure Gothic for Gin - extract provider from URL path
 	gothic.GetProviderName = func(req *http.Request) (string, error) {
-		// Extract provider from URL path like /auth/oauth/google or /auth/oauth/google/callback
 		parts := strings.Split(req.URL.Path, "/")
 		for i, part := range parts {
 			if part == "oauth" && i+1 < len(parts) {
 				return parts[i+1], nil
 			}
 		}
-		return "google", nil // fallback
+		return "google", nil
 	}
 }
 
@@ -80,14 +79,10 @@ func (h *oauthHandler) InitOAuth() {
 func (h *oauthHandler) OAuthLogin(c *gin.Context) {
 	provider := c.Param("provider")
 	if provider != "google" {
-		response.BadRequest(c, "Provider not supported")
+		h.handleAuthError(c, domain.ErrProviderNotSupported)
 		return
 	}
 
-	fmt.Printf("DEBUG: Starting OAuth login for provider: %s\n", provider)
-	fmt.Printf("DEBUG: Request URL: %s\n", c.Request.URL.String())
-
-	// Use Gin-compatible Gothic handler
 	h.ginGothicBeginAuth(c)
 }
 
@@ -105,39 +100,28 @@ func (h *oauthHandler) OAuthLogin(c *gin.Context) {
 func (h *oauthHandler) OAuthCallback(c *gin.Context) {
 	provider := c.Param("provider")
 	if provider != "google" {
-		response.BadRequest(c, "Provider not supported")
+		h.handleAuthError(c, domain.ErrProviderNotSupported)
 		return
 	}
 
-	fmt.Printf("DEBUG: OAuth callback for provider: %s\n", provider)
-	fmt.Printf("DEBUG: Request URL: %s\n", c.Request.URL.String())
-	fmt.Printf("DEBUG: Request headers: %+v\n", c.Request.Header)
-
-	// Complete OAuth authentication using Gin-compatible handler
 	gothUser, err := h.ginGothicCompleteAuth(c)
 	if err != nil {
-		fmt.Printf("DEBUG: CompleteUserAuth error: %v\n", err)
-		response.InternalError(c, fmt.Sprintf("Failed to complete auth: %v", err))
+		response.InternalError(c, "Failed to complete auth")
 		return
 	}
 
-	fmt.Printf("DEBUG: Gothic user: %+v\n", gothUser)
-
-	// Find or create user
-	user, err := h.findOrCreateUser(gothUser)
+	user, err := h.findOrCreateUser(c.Request.Context(), gothUser)
 	if err != nil {
-		response.InternalError(c, "Failed to process user")
+		h.handleAuthError(c, err)
 		return
 	}
 
-	// Generate access token for API access
 	accessToken, err := h.service.GenerateAccessToken(user)
 	if err != nil {
 		response.InternalError(c, "Failed to generate access token")
 		return
 	}
 
-	// Prepare response
 	authResp := dto.AuthResponse{
 		AccessToken: accessToken,
 		User: dto.UserDTO{
@@ -148,90 +132,91 @@ func (h *oauthHandler) OAuthCallback(c *gin.Context) {
 			Role:             user.Role,
 			ProfileCompleted: user.ProfileCompleted,
 			IsActive:         true,
-			CreatedAt:        user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:        user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			CreatedAt:        user.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:        user.UpdatedAt.Format(time.RFC3339),
 		},
 	}
 
-	// Always redirect to frontend with token data
 	frontendURL := h.cfg.FrontendURL
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
 
-	// Encode auth response as URL parameter
 	authData, _ := json.Marshal(authResp)
 	redirectURL := fmt.Sprintf("%s/auth/callback?data=%s", frontendURL, url.QueryEscape(string(authData)))
-	
+
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
-// findOrCreateUser finds existing user or creates new one from OAuth data
-func (h *oauthHandler) findOrCreateUser(gothUser goth.User) (*model.User, error) {
-	// Try to find existing user by email
-	existingUser, err := h.service.GetUserByEmail(gothUser.Email)
+func (h *oauthHandler) findOrCreateUser(ctx context.Context, gothUser goth.User) (*model.User, error) {
+	user, err := h.service.GetUserByEmail(ctx, gothUser.Email)
 	if err == nil {
-		// Update user info from OAuth if name is provided and profile is not completed
-		if gothUser.Name != "" && !existingUser.ProfileCompleted {
-			// Try to split the name into first and last name
-			nameParts := strings.SplitN(gothUser.Name, " ", 2)
-			if len(nameParts) > 0 {
-				existingUser.FirstName = nameParts[0]
+		if gothUser.Name != "" && !user.ProfileCompleted {
+			parts := strings.SplitN(gothUser.Name, " ", 2)
+			if len(parts) > 0 {
+				user.FirstName = parts[0]
 			}
-			if len(nameParts) > 1 {
-				existingUser.LastName = nameParts[1]
-				existingUser.ProfileCompleted = true
+			if len(parts) > 1 {
+				user.LastName = parts[1]
+				user.ProfileCompleted = true
 			}
 		}
-		return existingUser, nil
+		return user, nil
 	}
 
-	// Create new user
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, err
+	}
+
 	newUser := &model.User{
-		Email: gothUser.Email,
-		Role:  "user", // Default role
-		ProfileCompleted: false, // Will need to complete profile
+		Email:            gothUser.Email,
+		Role:             "user",
+		ProfileCompleted: false,
 	}
 
-	// Try to extract first and last name from OAuth if available
 	if gothUser.Name != "" {
-		nameParts := strings.SplitN(gothUser.Name, " ", 2)
-		if len(nameParts) > 0 {
-			newUser.FirstName = nameParts[0]
+		parts := strings.SplitN(gothUser.Name, " ", 2)
+		if len(parts) > 0 {
+			newUser.FirstName = parts[0]
 		}
-		if len(nameParts) > 1 {
-			newUser.LastName = nameParts[1]
+		if len(parts) > 1 {
+			newUser.LastName = parts[1]
 			newUser.ProfileCompleted = true
 		}
 	}
 
-	err = h.service.CreateUserOAuth(newUser)
-	if err != nil {
+	if err := h.service.CreateUserOAuth(ctx, newUser); err != nil {
 		return nil, err
 	}
 
 	return newUser, nil
 }
 
-// ginGothicBeginAuth adapts Gothic BeginAuthHandler for Gin
+func (h *oauthHandler) handleAuthError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, domain.ErrProviderNotSupported):
+		response.BadRequest(c, "Provider not supported")
+	case errors.Is(err, domain.ErrEmailAlreadyRegistered):
+		response.Fail(c, http.StatusConflict, "CONFLICT", "Email already registered")
+	case errors.Is(err, domain.ErrUserNotFound):
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "User not found")
+	case errors.Is(err, domain.ErrProfileUpdateFailed):
+		response.InternalError(c, "Failed to update profile")
+	default:
+		response.InternalError(c, "Authentication error")
+	}
+}
+
 func (h *oauthHandler) ginGothicBeginAuth(c *gin.Context) {
-	// Create a wrapper that implements http.ResponseWriter properly for Gin
 	writer := &ginResponseWriter{c.Writer, c}
-	
-	// Call Gothic BeginAuthHandler with proper writer
 	gothic.BeginAuthHandler(writer, c.Request)
 }
 
-// ginGothicCompleteAuth adapts Gothic CompleteUserAuth for Gin
 func (h *oauthHandler) ginGothicCompleteAuth(c *gin.Context) (goth.User, error) {
-	// Create a wrapper that implements http.ResponseWriter properly for Gin
 	writer := &ginResponseWriter{c.Writer, c}
-	
-	// Call Gothic CompleteUserAuth with proper writer
 	return gothic.CompleteUserAuth(writer, c.Request)
 }
 
-// ginResponseWriter wraps Gin's ResponseWriter to be compatible with http.ResponseWriter
 type ginResponseWriter struct {
 	gin.ResponseWriter
 	ctx *gin.Context
@@ -260,24 +245,20 @@ func (w *ginResponseWriter) WriteHeader(statusCode int) {
 // @Failure 500 {object} response.APIResponse
 // @Router /auth/complete-profile [patch]
 func (h *oauthHandler) CompleteProfile(c *gin.Context) {
-	// Get user ID from context (set by authentication middleware)
 	userID, exists := c.Get("userID")
 	if !exists {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
 
-	// Parse request body
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request data")
 		return
 	}
 
-	// Update profile
-	err := h.service.CompleteProfile(c.Request.Context(), userID.(uuid.UUID), req.FirstName, req.LastName)
-	if err != nil {
-		response.InternalError(c, "Failed to update profile")
+	if err := h.service.CompleteProfile(c.Request.Context(), userID.(uuid.UUID), req.FirstName, req.LastName); err != nil {
+		h.handleAuthError(c, err)
 		return
 	}
 

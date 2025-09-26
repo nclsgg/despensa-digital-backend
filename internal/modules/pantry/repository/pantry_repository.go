@@ -80,9 +80,9 @@ func (r *pantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.
 	var users []*model.PantryUserInfo
 	err := r.db.WithContext(ctx).
 		Table("pantry_users").
-		Select("users.id as user_id, users.email, pantry_users.role").
+		Select("pantry_users.id as id, pantry_users.pantry_id as pantry_id, pantry_users.user_id as user_id, users.email, pantry_users.role").
 		Joins("JOIN users ON users.id = pantry_users.user_id").
-		Where("pantry_users.pantry_id = ?", pantryID).
+		Where("pantry_users.pantry_id = ? AND pantry_users.deleted_at IS NULL", pantryID).
 		Scan(&users).Error
 
 	return users, err

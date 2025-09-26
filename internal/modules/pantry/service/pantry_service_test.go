@@ -220,6 +220,7 @@ func TestRemoveUserFromPantry_BlockOwner(t *testing.T) {
 	ownerEmail := "teste@email.com"
 
 	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
+	userRepo.On("GetUserByEmail", ctx, ownerEmail).Return(&userModel.User{ID: ownerID, Email: ownerEmail}, nil)
 
 	err := svc.RemoveUserFromPantry(ctx, pantryID, ownerID, ownerEmail)
 	assert.EqualError(t, err, "owner cannot remove themselves")
@@ -278,18 +279,20 @@ func TestListUsersInPantry_Success(t *testing.T) {
 	pantryID := uuid.New()
 	userID := uuid.New()
 
-	expectedUsers := []*model.PantryUserInfo{
-		{UserID: uuid.New(), Email: "test1@example.com", Role: "member"},
-		{UserID: uuid.New(), Email: "test2@example.com", Role: "owner"},
-	}
+	userInfo1 := &model.PantryUserInfo{ID: uuid.New(), PantryID: pantryID, UserID: uuid.New(), Email: "test1@example.com", Role: "member"}
+	userInfo2 := &model.PantryUserInfo{ID: uuid.New(), PantryID: pantryID, UserID: uuid.New(), Email: "test2@example.com", Role: "owner"}
+	expectedUsers := []*model.PantryUserInfo{userInfo1, userInfo2}
 
 	repo.On("IsUserInPantry", ctx, pantryID, userID).Return(true, nil)
 	repo.On("ListUsersInPantry", ctx, pantryID).Return(expectedUsers, nil)
+	userRepo.On("GetUserById", ctx, userInfo1.UserID).Return(&userModel.User{ID: userInfo1.UserID, FirstName: "Test", LastName: "One"}, nil)
+	userRepo.On("GetUserById", ctx, userInfo2.UserID).Return(&userModel.User{ID: userInfo2.UserID, FirstName: "Admin", LastName: "User"}, nil)
 
 	result, err := svc.ListUsersInPantry(ctx, pantryID, userID)
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 	repo.AssertExpectations(t)
+	userRepo.AssertExpectations(t)
 }
 
 func TestListUsersInPantry_Unauthorized(t *testing.T) {

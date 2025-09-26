@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,14 @@ func (h *itemHandler) CreateItem(c *gin.Context) {
 
 	item, err := h.service.Create(c.Request.Context(), input, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to create item")
+		switch {
+		case errors.Is(err, domain.ErrInvalidPantry):
+			response.BadRequest(c, "Invalid pantry ID")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to create item")
+		}
 		return
 	}
 
@@ -75,7 +82,14 @@ func (h *itemHandler) UpdateItem(c *gin.Context) {
 
 	item, err := h.service.Update(c.Request.Context(), id, input, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to update item")
+		switch {
+		case errors.Is(err, domain.ErrItemNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to update item")
+		}
 		return
 	}
 
@@ -102,7 +116,14 @@ func (h *itemHandler) GetItem(c *gin.Context) {
 
 	item, err := h.service.FindByID(c.Request.Context(), id, userID)
 	if err != nil {
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
+		switch {
+		case errors.Is(err, domain.ErrItemNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to fetch item")
+		}
 		return
 	}
 	response.OK(c, item)
@@ -127,7 +148,14 @@ func (h *itemHandler) DeleteItem(c *gin.Context) {
 	userID := rawID.(uuid.UUID)
 
 	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
-		response.InternalError(c, "Failed to delete item")
+		switch {
+		case errors.Is(err, domain.ErrItemNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to delete item")
+		}
 		return
 	}
 	response.OK(c, response.MessagePayload{Message: "Item deleted successfully"})
@@ -158,7 +186,12 @@ func (h *itemHandler) ListItems(c *gin.Context) {
 
 	items, err := h.service.ListByPantryID(c.Request.Context(), pantryID, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to list items")
+		switch {
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to list items")
+		}
 		return
 	}
 
@@ -193,18 +226,18 @@ func (h *itemHandler) FilterItems(c *gin.Context) {
 		response.BadRequest(c, "Invalid filter parameters")
 		return
 	}
-	fmt.Print(filters)
 
 	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
 
 	items, err := h.service.FilterByPantryID(c.Request.Context(), pantryID, filters, userID)
 	if err != nil {
-		if err.Error() == "user not authorized for this operation" {
+		switch {
+		case errors.Is(err, domain.ErrUnauthorized):
 			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
-			return
+		default:
+			response.InternalError(c, "Failed to filter items")
 		}
-		response.InternalError(c, "Failed to filter items")
 		return
 	}
 

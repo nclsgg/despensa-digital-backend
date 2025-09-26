@@ -1,7 +1,5 @@
 package dto
 
-import "time"
-
 type CreateItemCategoryDTO struct {
 	PantryID string `json:"pantry_id" binding:"required,uuid"`
 	Name     string `json:"name" binding:"required"`
@@ -19,12 +17,13 @@ type UpdateItemCategoryDTO struct {
 }
 
 type ItemCategoryResponse struct {
-	ID        string     `json:"id"`
-	PantryID  string     `json:"pantry_id"`
-	AddedBy   string     `json:"added_by"`
-	Name      string     `json:"name"`
-	Color     string     `json:"color"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	ID        string  `json:"id"`
+	PantryID  string  `json:"pantry_id"`
+	AddedBy   string  `json:"added_by"`
+	Name      string  `json:"name"`
+	Color     string  `json:"color"`
+	IsDefault bool    `json:"is_default"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+	DeletedAt *string `json:"deleted_at,omitempty"`
 }

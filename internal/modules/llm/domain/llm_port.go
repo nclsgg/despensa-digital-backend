@@ -3,8 +3,10 @@ package domain
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	recipeDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/dto"
 )
 
 // LLMProvider interface para abstrair diferentes provedores de LLM
@@ -67,16 +69,16 @@ type LLMService interface {
 // RecipeService interface específica para geração de receitas
 type RecipeService interface {
 	// GenerateRecipe gera uma receita baseada nos parâmetros
-	GenerateRecipe(ctx context.Context, request *dto.RecipeRequestDTO, userID string) (*dto.RecipeResponseDTO, error)
+	GenerateRecipe(ctx context.Context, request *dto.RecipeRequestDTO, userID uuid.UUID) (*dto.RecipeResponseDTO, error)
 
 	// GetAvailableIngredients obtém ingredientes disponíveis na despensa
-	GetAvailableIngredients(ctx context.Context, pantryID string, userID string) ([]string, error)
+	GetAvailableIngredients(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]recipeDTO.AvailableIngredientDTO, error)
 
 	// SearchRecipesByIngredients busca receitas por ingredientes
 	SearchRecipesByIngredients(ctx context.Context, ingredients []string, filters map[string]string) ([]dto.RecipeResponseDTO, error)
 
 	// ValidateRecipeRequest valida uma requisição de receita
-	ValidateRecipeRequest(request *dto.RecipeRequestDTO) error
+	ValidateRecipeRequest(request *dto.RecipeRequestDTO) (uuid.UUID, error)
 
 	// EnrichRecipeWithNutrition adiciona informações nutricionais
 	EnrichRecipeWithNutrition(ctx context.Context, recipe *dto.RecipeResponseDTO) error

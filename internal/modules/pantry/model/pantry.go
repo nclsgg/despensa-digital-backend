@@ -27,9 +27,13 @@ type PantryUser struct {
 }
 
 type PantryUserInfo struct {
-	UserID uuid.UUID `json:"user_id"`
-	Email  string    `json:"email"`
-	Role   string    `json:"role"`
+	ID        uuid.UUID `json:"id"`
+	PantryID  uuid.UUID `json:"pantry_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Role      string    `json:"role"`
 }
 
 type PantryWithItemCount struct {

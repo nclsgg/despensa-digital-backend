@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"errors"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/dto"
+	userModel "github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 )
 
@@ -40,20 +44,16 @@ func (h *userHandler) GetUser(c *gin.Context) {
 
 	user, err := h.service.GetUserById(c.Request.Context(), id)
 	if err != nil {
-		response.InternalError(c, "Failed to retrieve user")
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			response.Fail(c, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+		default:
+			response.InternalError(c, "Failed to retrieve user")
+		}
 		return
 	}
 
-	dto := dto.UserResponse{
-		ID:               user.ID,
-		Email:            user.Email,
-		FirstName:        user.FirstName,
-		LastName:         user.LastName,
-		Role:             user.Role,
-		ProfileCompleted: user.ProfileCompleted,
-	}
-
-	response.OK(c, dto)
+	response.OK(c, toUserResponse(user))
 }
 
 // GetCurrentUser returns the currently authenticated user
@@ -79,20 +79,16 @@ func (h *userHandler) GetCurrentUser(c *gin.Context) {
 
 	user, err := h.service.GetUserById(c.Request.Context(), id)
 	if err != nil {
-		response.InternalError(c, "Failed to retrieve user")
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			response.Fail(c, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+		default:
+			response.InternalError(c, "Failed to retrieve user")
+		}
 		return
 	}
 
-	dto := dto.UserResponse{
-		ID:               user.ID,
-		Email:            user.Email,
-		FirstName:        user.FirstName,
-		LastName:         user.LastName,
-		Role:             user.Role,
-		ProfileCompleted: user.ProfileCompleted,
-	}
-
-	response.OK(c, dto)
+	response.OK(c, toUserResponse(user))
 }
 
 // GetAllUsers returns all users (admin only)
@@ -109,19 +105,13 @@ func (h *userHandler) GetAllUsers(c *gin.Context) {
 		return
 	}
 
-	var dtos []dto.UserResponse
-	for _, user := range users {
-		dtos = append(dtos, dto.UserResponse{
-			ID:               user.ID,
-			Email:            user.Email,
-			FirstName:        user.FirstName,
-			LastName:         user.LastName,
-			Role:             user.Role,
-			ProfileCompleted: user.ProfileCompleted,
-		})
+	responses := make([]dto.UserResponse, 0, len(users))
+	for i := range users {
+		user := users[i]
+		responses = append(responses, toUserResponse(&user))
 	}
 
-	response.OK(c, dtos)
+	response.OK(c, responses)
 }
 
 // CompleteProfile completes user profile with name information
@@ -157,9 +147,25 @@ func (h *userHandler) CompleteProfile(c *gin.Context) {
 
 	err := h.service.CompleteProfile(c.Request.Context(), id, req.FirstName, req.LastName)
 	if err != nil {
-		response.InternalError(c, "Failed to complete profile")
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			response.Fail(c, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+		default:
+			response.InternalError(c, "Failed to complete profile")
+		}
 		return
 	}
 
 	response.OK(c, gin.H{"message": "Profile completed successfully"})
+}
+
+func toUserResponse(user *userModel.User) dto.UserResponse {
+	return dto.UserResponse{
+		ID:               user.ID.String(),
+		Email:            user.Email,
+		FirstName:        user.FirstName,
+		LastName:         user.LastName,
+		Role:             user.Role,
+		ProfileCompleted: user.ProfileCompleted,
+	}
 }

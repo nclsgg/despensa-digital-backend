@@ -57,11 +57,19 @@ func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
 }
 
 // OAuth specific methods
-func (s *authService) GetUserByEmail(email string) (*model.User, error) {
-	return s.repo.GetUser(context.Background(), email)
+func (s *authService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	user, err := s.repo.GetUser(ctx, email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return user, nil
 }
 
-func (s *authService) CreateUserOAuth(user *model.User) error {
+func (s *authService) CreateUserOAuth(ctx context.Context, user *model.User) error {
 	// For OAuth users, we don't need password hashing since they authenticate via OAuth
 	// But we'll set a placeholder password just in case
 	if user.Password == "" {
@@ -72,11 +80,11 @@ func (s *authService) CreateUserOAuth(user *model.User) error {
 		user.Password = hashedPassword
 	}
 
-	if err := s.repo.CreateUser(context.Background(), user); err != nil {
+	if err := s.repo.CreateUser(ctx, user); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return errors.New("email already registered")
+			return domain.ErrEmailAlreadyRegistered
 		}
-		return errors.New("failed to create user")
+		return err
 	}
 
 	return nil
@@ -87,7 +95,7 @@ func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, fir
 	user, err := s.repo.GetUserById(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user not found")
+			return domain.ErrUserNotFound
 		}
 		return err
 	}
@@ -96,9 +104,8 @@ func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, fir
 	user.LastName = lastName
 	user.ProfileCompleted = true
 
-	err = s.repo.UpdateUser(ctx, user)
-	if err != nil {
-		return err
+	if err := s.repo.UpdateUser(ctx, user); err != nil {
+		return domain.ErrProfileUpdateFailed
 	}
 
 	return nil

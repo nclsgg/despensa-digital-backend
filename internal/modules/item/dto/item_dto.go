@@ -1,7 +1,5 @@
 package dto
 
-import "time"
-
 type CreateItemDTO struct {
 	PantryID     string  `json:"pantry_id" binding:"required,uuid"`
 	Name         string  `json:"name" binding:"required"`
@@ -32,16 +30,16 @@ type ItemFilterDTO struct {
 }
 
 type ItemResponse struct {
-	ID           string     `json:"id"`
-	PantryID     string     `json:"pantry_id"`
-	AddedBy      string     `json:"added_by"`
-	Name         string     `json:"name"`
-	Quantity     float64    `json:"quantity"`
-	TotalPrice   float64    `json:"total_price"`
-	PricePerUnit float64    `json:"price_per_unit"`
-	Unit         string     `json:"unit"`
-	CategoryID   string     `json:"category_id"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	ID           string  `json:"id"`
+	PantryID     string  `json:"pantry_id"`
+	AddedBy      string  `json:"added_by"`
+	Name         string  `json:"name"`
+	Quantity     float64 `json:"quantity"`
+	Unit         string  `json:"unit"`
+	PricePerUnit float64 `json:"price_per_unit"`
+	TotalPrice   float64 `json:"total_price"`
+	CategoryID   *string `json:"category_id,omitempty"`
+	ExpiresAt    *string `json:"expires_at,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }

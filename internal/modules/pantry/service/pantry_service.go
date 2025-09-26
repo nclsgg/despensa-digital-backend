@@ -185,7 +185,21 @@ func (s *pantryService) ListUsersInPantry(ctx context.Context, pantryID, userID 
 		return nil, errors.New("user is not in the pantry")
 	}
 
-	return s.repo.ListUsersInPantry(ctx, pantryID)
+	users, err := s.repo.ListUsersInPantry(ctx, pantryID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, info := range users {
+		user, err := s.userRepo.GetUserById(ctx, info.UserID)
+		if err != nil {
+			continue
+		}
+		info.FirstName = user.FirstName
+		info.LastName = user.LastName
+	}
+
+	return users, nil
 }
 
 func (s *pantryService) RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error {

@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -9,8 +10,11 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/nclsgg/despensa-digital/backend/config"
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/service"
 )
@@ -80,6 +84,136 @@ func TestHashPassword(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, hashedPassword)
 	assert.NotEqual(t, password, hashedPassword)
+}
+
+func TestAuthService_GetUserByEmail(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	user := &model.User{ID: uuid.New(), Email: "test@example.com"}
+	repo.On("GetUser", mock.Anything, user.Email).Return(user, nil).Once()
+
+	result, err := authSvc.GetUserByEmail(context.Background(), user.Email)
+	require.NoError(t, err)
+	require.Equal(t, user, result)
+
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_GetUserByEmail_NotFound(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	email := "missing@example.com"
+	repo.On("GetUser", mock.Anything, email).Return((*model.User)(nil), gorm.ErrRecordNotFound).Once()
+
+	result, err := authSvc.GetUserByEmail(context.Background(), email)
+	require.ErrorIs(t, err, domain.ErrUserNotFound)
+	require.Nil(t, result)
+
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_CreateUserOAuth_SetsPassword(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	user := &model.User{Email: "oauth@example.com"}
+	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(nil).Once().Run(func(args mock.Arguments) {
+		created := args.Get(1).(*model.User)
+		require.NotEmpty(t, created.Password)
+	})
+
+	require.NoError(t, authSvc.CreateUserOAuth(context.Background(), user))
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_CreateUserOAuth_Duplicate(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	user := &model.User{Email: "duplicate@example.com"}
+	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(gorm.ErrDuplicatedKey).Once()
+
+	err := authSvc.CreateUserOAuth(context.Background(), user)
+	require.ErrorIs(t, err, domain.ErrEmailAlreadyRegistered)
+
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_CompleteProfile_Success(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	userID := uuid.New()
+	existing := &model.User{ID: userID}
+	repo.On("GetUserById", mock.Anything, userID).Return(existing, nil).Once()
+	repo.On("UpdateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(nil).Once().Run(func(args mock.Arguments) {
+		updated := args.Get(1).(*model.User)
+		require.Equal(t, "John", updated.FirstName)
+		require.Equal(t, "Doe", updated.LastName)
+		require.True(t, updated.ProfileCompleted)
+	})
+
+	require.NoError(t, authSvc.CompleteProfile(context.Background(), userID, "John", "Doe"))
+
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_CompleteProfile_NotFound(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	userID := uuid.New()
+	repo.On("GetUserById", mock.Anything, userID).Return((*model.User)(nil), gorm.ErrRecordNotFound).Once()
+
+	err := authSvc.CompleteProfile(context.Background(), userID, "John", "Doe")
+	require.ErrorIs(t, err, domain.ErrUserNotFound)
+
+	repo.AssertExpectations(t)
+}
+
+func TestAuthService_CompleteProfile_UpdateError(t *testing.T) {
+	redisClient, mr := getTestRedisClient(t)
+	defer mr.Close()
+
+	repo := new(mockAuthRepository)
+	cfg := getTestConfig()
+	authSvc := service.NewAuthService(repo, cfg, redisClient)
+
+	userID := uuid.New()
+	existing := &model.User{ID: userID}
+	repo.On("GetUserById", mock.Anything, userID).Return(existing, nil).Once()
+	repo.On("UpdateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(errors.New("db error")).Once()
+
+	err := authSvc.CompleteProfile(context.Background(), userID, "John", "Doe")
+	require.ErrorIs(t, err, domain.ErrProfileUpdateFailed)
+
+	repo.AssertExpectations(t)
 }
 
 /*

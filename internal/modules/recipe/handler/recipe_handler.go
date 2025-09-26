@@ -1,31 +1,70 @@
 package handler
 
 import (
-	"context"
+	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
-	recipeService "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/service"
+	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 )
 
 // RecipeHandler handles recipe-related HTTP requests
 type RecipeHandler struct {
-	recipeService *recipeService.RecipeServiceImpl
+	recipeService recipeDomain.RecipeService
 	llmService    *service.LLMServiceImpl
 }
 
 // NewRecipeHandler creates a new recipe handler
 func NewRecipeHandler(
-	recipeService *recipeService.RecipeServiceImpl,
+	recipeService recipeDomain.RecipeService,
 	llmService *service.LLMServiceImpl,
 ) *RecipeHandler {
 	return &RecipeHandler{
 		recipeService: recipeService,
 		llmService:    llmService,
+	}
+}
+
+func extractDetail(err error, base error, fallback string) string {
+	if err == nil {
+		return fallback
+	}
+	if base == nil || !errors.Is(err, base) {
+		return fallback
+	}
+	message := err.Error()
+	prefix := base.Error() + ": "
+	if strings.HasPrefix(message, prefix) {
+		detail := strings.TrimPrefix(message, prefix)
+		if detail != "" {
+			return detail
+		}
+	}
+	return fallback
+}
+
+func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, recipeDomain.ErrInvalidRequest):
+		detail := extractDetail(err, recipeDomain.ErrInvalidRequest, "Invalid recipe request")
+		response.BadRequest(c, detail)
+	case errors.Is(err, recipeDomain.ErrUnauthorized):
+		response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+	case errors.Is(err, recipeDomain.ErrPantryNotFound):
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Pantry not found")
+	case errors.Is(err, recipeDomain.ErrNoIngredients):
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "No ingredients available for this pantry")
+	case errors.Is(err, recipeDomain.ErrInvalidLLMResponse):
+		response.InternalError(c, "Received invalid response from recipe generator")
+	case errors.Is(err, recipeDomain.ErrLLMRequest):
+		response.InternalError(c, "Failed to process recipe request")
+	default:
+		response.InternalError(c, "Unexpected error while processing recipe request")
 	}
 }
 
@@ -58,21 +97,24 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDInterface.(string)
+	userID, ok := userIDInterface.(uuid.UUID)
 	if !ok {
-		// Try to convert from uuid.UUID
-		if userUUID, ok := userIDInterface.(uuid.UUID); ok {
-			userID = userUUID.String()
+		if userString, ok := userIDInterface.(string); ok {
+			parsed, err := uuid.Parse(userString)
+			if err != nil {
+				response.Unauthorized(c, "user_id inválido no contexto")
+				return
+			}
+			userID = parsed
 		} else {
 			response.Unauthorized(c, "user_id inválido no contexto")
 			return
 		}
 	}
 
-	// Generate recipe
-	recipe, err := h.recipeService.GenerateRecipe(context.Background(), &request, userID)
+	recipe, err := h.recipeService.GenerateRecipe(c.Request.Context(), &request, userID)
 	if err != nil {
-		response.InternalError(c, "Erro ao gerar receita: "+err.Error())
+		h.handleServiceError(c, err)
 		return
 	}
 
@@ -103,7 +145,8 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 	}
 
 	// Validate pantry ID format
-	if _, err := uuid.Parse(pantryID); err != nil {
+	pantryUUID, err := uuid.Parse(pantryID)
+	if err != nil {
 		response.BadRequest(c, "ID da despensa inválido: "+err.Error())
 		return
 	}
@@ -115,20 +158,24 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDInterface.(string)
+	userID, ok := userIDInterface.(uuid.UUID)
 	if !ok {
-		if userUUID, ok := userIDInterface.(uuid.UUID); ok {
-			userID = userUUID.String()
+		if userString, ok := userIDInterface.(string); ok {
+			parsed, err := uuid.Parse(userString)
+			if err != nil {
+				response.Unauthorized(c, "user_id inválido no contexto")
+				return
+			}
+			userID = parsed
 		} else {
 			response.Unauthorized(c, "user_id inválido no contexto")
 			return
 		}
 	}
 
-	// Get available ingredients
-	ingredients, err := h.recipeService.GetAvailableIngredients(context.Background(), pantryID, userID)
+	ingredients, err := h.recipeService.GetAvailableIngredients(c.Request.Context(), pantryUUID, userID)
 	if err != nil {
-		response.InternalError(c, "Erro ao obter ingredientes: "+err.Error())
+		h.handleServiceError(c, err)
 		return
 	}
 
@@ -157,7 +204,7 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 	}
 
 	// Process LLM request
-	response_data, err := h.llmService.ProcessRequest(context.Background(), &request)
+	response_data, err := h.llmService.ProcessRequest(c.Request.Context(), &request)
 	if err != nil {
 		response.InternalError(c, "Erro na requisição ao LLM: "+err.Error())
 		return

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,14 @@ func (h *itemCategoryHandler) CreateItemCategory(c *gin.Context) {
 
 	category, err := h.service.Create(c.Request.Context(), input, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to create item category")
+		switch {
+		case errors.Is(err, domain.ErrInvalidPantry):
+			response.BadRequest(c, "Invalid pantry ID")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to create item category")
+		}
 		return
 	}
 
@@ -104,7 +112,16 @@ func (h *itemCategoryHandler) CloneDefaultCategoryToPantry(c *gin.Context) {
 
 	category, err := h.service.CloneDefaultCategoryToPantry(c.Request.Context(), defaultCategoryID, pantryID, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to clone item category")
+		switch {
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		case errors.Is(err, domain.ErrCategoryNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Default category not found")
+		case errors.Is(err, domain.ErrCategoryNotDefault):
+			response.BadRequest(c, "Source category is not marked as default")
+		default:
+			response.InternalError(c, "Failed to clone item category")
+		}
 		return
 	}
 
@@ -139,7 +156,14 @@ func (h *itemCategoryHandler) UpdateItemCategory(c *gin.Context) {
 
 	category, err := h.service.Update(c.Request.Context(), id, input, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to update item category")
+		switch {
+		case errors.Is(err, domain.ErrCategoryNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item category not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to update item category")
+		}
 		return
 	}
 
@@ -166,7 +190,14 @@ func (h *itemCategoryHandler) GetItemCategory(c *gin.Context) {
 
 	category, err := h.service.FindByID(c.Request.Context(), id, userID)
 	if err != nil {
-		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item category not found")
+		switch {
+		case errors.Is(err, domain.ErrCategoryNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item category not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to fetch item category")
+		}
 		return
 	}
 	response.OK(c, category)
@@ -191,7 +222,14 @@ func (h *itemCategoryHandler) DeleteItemCategory(c *gin.Context) {
 	userID := rawID.(uuid.UUID)
 
 	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
-		response.InternalError(c, "Failed to delete item category")
+		switch {
+		case errors.Is(err, domain.ErrCategoryNotFound):
+			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item category not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Only the creator can delete this category")
+		default:
+			response.InternalError(c, "Failed to delete item category")
+		}
 		return
 	}
 
@@ -219,7 +257,12 @@ func (h *itemCategoryHandler) ListItemCategoriesByPantry(c *gin.Context) {
 
 	categories, err := h.service.ListByPantryID(c.Request.Context(), pantryID, userID)
 	if err != nil {
-		response.InternalError(c, "Failed to list item categories")
+		switch {
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to list item categories")
+		}
 		return
 	}
 

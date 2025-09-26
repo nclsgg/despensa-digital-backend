@@ -10,12 +10,12 @@ import (
 )
 
 type ItemService interface {
-	Create(ctx context.Context, dto dto.CreateItemDTO, userID uuid.UUID) (*model.Item, error)
-	Update(ctx context.Context, id uuid.UUID, dto dto.UpdateItemDTO, userID uuid.UUID) (*model.Item, error)
-	FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Item, error)
+	Create(ctx context.Context, input dto.CreateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error)
+	Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error)
+	FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*dto.ItemResponse, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*model.Item, error)
-	FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*model.Item, error)
+	ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*dto.ItemResponse, error)
+	FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*dto.ItemResponse, error)
 }
 
 type ItemRepository interface {
@@ -29,14 +29,14 @@ type ItemRepository interface {
 }
 
 type ItemCategoryService interface {
-	Create(ctx context.Context, dto dto.CreateItemCategoryDTO, userID uuid.UUID) (*model.ItemCategory, error)
-	CreateDefault(ctx context.Context, dto dto.CreateDefaultItemCategoryDTO, userID uuid.UUID) (*model.ItemCategory, error)
-	CloneDefaultCategoryToPantry(ctx context.Context, defaultCategoryID, pantryID uuid.UUID, userID uuid.UUID) (*model.ItemCategory, error)
-	Update(ctx context.Context, id uuid.UUID, dto dto.UpdateItemCategoryDTO, userID uuid.UUID) (*model.ItemCategory, error)
-	FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.ItemCategory, error)
+	Create(ctx context.Context, input dto.CreateItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error)
+	CreateDefault(ctx context.Context, input dto.CreateDefaultItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error)
+	CloneDefaultCategoryToPantry(ctx context.Context, defaultCategoryID, pantryID uuid.UUID, userID uuid.UUID) (*dto.ItemCategoryResponse, error)
+	Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error)
+	FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*dto.ItemCategoryResponse, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*model.ItemCategory, error)
-	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*model.ItemCategory, error)
+	ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*dto.ItemCategoryResponse, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*dto.ItemCategoryResponse, error)
 }
 
 type ItemCategoryRepository interface {

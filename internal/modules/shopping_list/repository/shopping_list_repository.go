@@ -41,7 +41,7 @@ func (r *shoppingListRepository) GetByUserID(ctx context.Context, userID uuid.UU
 		query = query.Offset(offset)
 	}
 
-	err := query.Order("created_at DESC").Find(&shoppingLists).Error
+	err := query.Order("created_at DESC").Preload("Items").Find(&shoppingLists).Error
 	return shoppingLists, err
 }
 

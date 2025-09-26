@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -46,7 +47,14 @@ func (h *ShoppingListHandler) CreateShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.CreateShoppingList(c.Request.Context(), userUUID, input)
 	if err != nil {
-		response.InternalError(c, "Error creating shopping list: "+err.Error())
+		switch {
+		case errors.Is(err, domain.ErrPantryAccessDenied):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		case errors.Is(err, domain.ErrPantryNotFound):
+			response.Fail(c, http.StatusNotFound, "PANTRY_NOT_FOUND", "Pantry not found")
+		default:
+			response.InternalError(c, "Failed to create shopping list")
+		}
 		return
 	}
 
@@ -87,7 +95,7 @@ func (h *ShoppingListHandler) GetShoppingLists(c *gin.Context) {
 
 	shoppingLists, err := h.shoppingListService.GetShoppingListsByUserID(c.Request.Context(), userUUID, limit, offset)
 	if err != nil {
-		response.InternalError(c, "Error getting shopping lists: "+err.Error())
+		response.InternalError(c, "Failed to fetch shopping lists")
 		return
 	}
 
@@ -120,11 +128,14 @@ func (h *ShoppingListHandler) GetShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.GetShoppingListByID(c.Request.Context(), userUUID, shoppingListID)
 	if err != nil {
-		if err.Error() == "shopping list not found" {
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
-			return
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to fetch shopping list")
 		}
-		response.InternalError(c, "Error getting shopping list: "+err.Error())
 		return
 	}
 
@@ -165,11 +176,14 @@ func (h *ShoppingListHandler) UpdateShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.UpdateShoppingList(c.Request.Context(), userUUID, shoppingListID, input)
 	if err != nil {
-		if err.Error() == "shopping list not found" {
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
-			return
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to update shopping list")
 		}
-		response.InternalError(c, "Error updating shopping list: "+err.Error())
 		return
 	}
 
@@ -202,11 +216,14 @@ func (h *ShoppingListHandler) DeleteShoppingList(c *gin.Context) {
 
 	err = h.shoppingListService.DeleteShoppingList(c.Request.Context(), userUUID, shoppingListID)
 	if err != nil {
-		if err.Error() == "shopping list not found" {
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
-			return
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to delete shopping list")
 		}
-		response.InternalError(c, "Error deleting shopping list: "+err.Error())
 		return
 	}
 
@@ -255,11 +272,16 @@ func (h *ShoppingListHandler) UpdateShoppingListItem(c *gin.Context) {
 
 	item, err := h.shoppingListService.UpdateShoppingListItem(c.Request.Context(), userUUID, shoppingListID, itemID, input)
 	if err != nil {
-		if err.Error() == "shopping list not found" || err.Error() == "item not found" {
-			response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
-			return
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
+			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
+		case errors.Is(err, domain.ErrItemNotFound):
+			response.Fail(c, http.StatusNotFound, "ITEM_NOT_FOUND", "Item not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to update shopping list item")
 		}
-		response.InternalError(c, "Error updating shopping list item: "+err.Error())
 		return
 	}
 
@@ -300,11 +322,16 @@ func (h *ShoppingListHandler) DeleteShoppingListItem(c *gin.Context) {
 
 	err = h.shoppingListService.DeleteShoppingListItem(c.Request.Context(), userUUID, shoppingListID, itemID)
 	if err != nil {
-		if err.Error() == "shopping list not found" || err.Error() == "item not found" {
-			response.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
-			return
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
+			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
+		case errors.Is(err, domain.ErrItemNotFound):
+			response.Fail(c, http.StatusNotFound, "ITEM_NOT_FOUND", "Item not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to delete shopping list item")
 		}
-		response.InternalError(c, "Error deleting shopping list item: "+err.Error())
 		return
 	}
 
@@ -337,7 +364,22 @@ func (h *ShoppingListHandler) GenerateAIShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.GenerateAIShoppingList(c.Request.Context(), userUUID, input)
 	if err != nil {
-		response.InternalError(c, "Error generating AI shopping list: "+err.Error())
+		switch {
+		case errors.Is(err, domain.ErrPantryNotFound):
+			response.Fail(c, http.StatusNotFound, "PANTRY_NOT_FOUND", "Pantry not found")
+		case errors.Is(err, domain.ErrPantryAccessDenied), errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
+		case errors.Is(err, domain.ErrPromptBuildFailed):
+			response.Fail(c, http.StatusUnprocessableEntity, "PROMPT_BUILD_FAILED", "Unable to build AI prompt")
+		case errors.Is(err, domain.ErrAIRequestFailed):
+			response.Fail(c, http.StatusBadGateway, "AI_REQUEST_FAILED", "AI provider unavailable")
+		case errors.Is(err, domain.ErrAIResponseInvalid):
+			response.Fail(c, http.StatusBadGateway, "AI_RESPONSE_INVALID", "AI returned an invalid response")
+		case errors.Is(err, domain.ErrShoppingListNotFound):
+			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
+		default:
+			response.InternalError(c, "Failed to generate AI shopping list")
+		}
 		return
 	}
 

@@ -1,0 +1,932 @@
+{
+	"info": {
+		"_postman_id": "8f4a5c92-1234-5678-9abc-def012345678",
+		"name": "Despensa Digital - Complete API",
+		"description": "Collection completa da API Despensa Digital com todos os endpoints de autenticação, perfil, lista de compras, pantry, items, LLM e recipe scraper",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔐 Authentication",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						}
+					}
+				},
+				{
+					"name": "OAuth Login - Google",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/oauth/login/google",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "oauth", "login", "google"]
+						}
+					}
+				},
+				{
+					"name": "OAuth Login - GitHub",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/oauth/login/github",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "oauth", "login", "github"]
+						}
+					}
+				},
+				{
+					"name": "OAuth Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/oauth/callback?code=auth_code&state=random_state",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "oauth", "callback"],
+							"query": [
+								{
+									"key": "code",
+									"value": "auth_code"
+								},
+								{
+									"key": "state",
+									"value": "random_state"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.access_token) {",
+									"        pm.environment.set(\"authToken\", response.data.access_token);",
+									"        pm.environment.set(\"refreshToken\", response.data.refresh_token);",
+									"        pm.environment.set(\"userId\", response.data.user.id);",
+									"        console.log(\"✅ Tokens e User ID salvos!\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/oauth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "oauth", "refresh"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "👤 Profile Management",
+			"item": [
+				{
+					"name": "Create Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"monthly_income\": 3500.00,\n  \"preferred_budget\": 800.00,\n  \"household_size\": 3,\n  \"dietary_restrictions\": [\"vegetariano\", \"sem lactose\"],\n  \"preferred_brands\": [\"Nestlé\", \"Sadia\", \"Tio João\"],\n  \"shopping_frequency\": \"weekly\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "profile"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.id) {",
+									"        pm.environment.set(\"profileId\", response.data.id);",
+									"        console.log(\"✅ Profile ID salvo:\", response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"preferred_budget\": 900.00,\n  \"household_size\": 4,\n  \"dietary_restrictions\": [\"vegetariano\", \"sem lactose\", \"low sodium\"],\n  \"preferred_brands\": [\"Nestlé\", \"Sadia\", \"Tio João\", \"Seara\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Delete Profile",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "profile"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🛒 Shopping Lists",
+			"item": [
+				{
+					"name": "Create Manual List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Compras da Semana\",\n  \"total_budget\": 200.00,\n  \"items\": [\n    {\n      \"name\": \"Arroz Integral\",\n      \"quantity\": 2,\n      \"unit\": \"kg\",\n      \"estimated_price\": 6.50,\n      \"category\": \"Grãos\",\n      \"brand\": \"Tio João\",\n      \"priority\": 1,\n      \"notes\": \"Arroz integral para a família\"\n    },\n    {\n      \"name\": \"Frango Peito\",\n      \"quantity\": 1.5,\n      \"unit\": \"kg\",\n      \"estimated_price\": 15.90,\n      \"category\": \"Proteínas\",\n      \"priority\": 1,\n      \"notes\": \"Proteína principal da semana\"\n    },\n    {\n      \"name\": \"Alface\",\n      \"quantity\": 2,\n      \"unit\": \"unidade\",\n      \"estimated_price\": 3.50,\n      \"category\": \"Verduras\",\n      \"priority\": 2,\n      \"notes\": \"Saladas da semana\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.id) {",
+									"        pm.environment.set(\"shoppingListId\", response.data.id);",
+									"        console.log(\"✅ Shopping List ID salvo:\", response.data.id);",
+									"        ",
+									"        if (response.data.items && response.data.items.length > 0) {",
+									"            pm.environment.set(\"itemId\", response.data.items[0].id);",
+									"            console.log(\"✅ First Item ID salvo:\", response.data.items[0].id);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Generate AI List ⭐",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Lista IA - Semanal\",\n  \"pantry_id\": \"{{pantryId}}\",\n  \"total_budget\": 300.00,\n  \"shopping_type\": \"weekly\",\n  \"include_basics\": true,\n  \"exclude_items\": [\"carne vermelha\", \"leite\"],\n  \"preferred_brands\": [\"Nestlé\", \"Sadia\"],\n  \"notes\": \"Lista baseada no histórico da despensa selecionada\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/generate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "generate"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.id) {",
+									"        pm.environment.set(\"shoppingListId\", response.data.id);",
+									"        console.log(\"✅ AI Shopping List ID salvo:\", response.data.id);",
+									"        ",
+									"        if (response.data.items && response.data.items.length > 0) {",
+									"            pm.environment.set(\"itemId\", response.data.items[0].id);",
+									"            console.log(\"✅ First AI Item ID salvo:\", response.data.items[0].id);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get All Lists",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists?limit=20&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Specific List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/{{shoppingListId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "{{shoppingListId}}"]
+						}
+					}
+				},
+				{
+					"name": "Update List",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Compras da Semana - Atualizada\",\n  \"status\": \"completed\",\n  \"total_budget\": 220.00,\n  \"actual_cost\": 198.50\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/{{shoppingListId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "{{shoppingListId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete List",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/{{shoppingListId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "{{shoppingListId}}"]
+						}
+					}
+				},
+				{
+					"name": "Update List Item",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"purchased\": true,\n  \"actual_price\": 6.80,\n  \"notes\": \"Comprado no supermercado XYZ\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/{{shoppingListId}}/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "{{shoppingListId}}", "items", "{{itemId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete List Item",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/shopping-lists/{{shoppingListId}}/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "shopping-lists", "{{shoppingListId}}", "items", "{{itemId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "👥 Users",
+			"item": [
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "me"]
+						}
+					}
+				},
+				{
+					"name": "Update User Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"João Silva Santos\",\n  \"email\": \"joao.silva@email.com\",\n  \"phone\": \"+55 11 99999-8888\",\n  \"timezone\": \"America/Sao_Paulo\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🏠 Pantries",
+			"item": [
+				{
+					"name": "Create Pantry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Despensa Principal\",\n  \"description\": \"Despensa da cozinha principal da casa\",\n  \"location\": \"Cozinha\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.id) {",
+									"        pm.environment.set(\"pantryId\", response.data.id);",
+									"        console.log(\"✅ Pantry ID salvo:\", response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get User Pantries",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries"]
+						}
+					}
+				},
+				{
+					"name": "Get Pantry by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries/{{pantryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries", "{{pantryId}}"]
+						}
+					}
+				},
+				{
+					"name": "Update Pantry",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Despensa Principal Atualizada\",\n  \"description\": \"Despensa principal da casa com organização renovada\",\n  \"location\": \"Cozinha - Armário Principal\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries/{{pantryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries", "{{pantryId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete Pantry",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries/{{pantryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries", "{{pantryId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📦 Items",
+			"item": [
+				{
+					"name": "Create Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pantry_id\": \"{{pantryId}}\",\n  \"name\": \"Arroz Integral\",\n  \"brand\": \"Tio João\",\n  \"category\": \"Grãos\",\n  \"quantity\": 2.0,\n  \"unit\": \"kg\",\n  \"purchase_date\": \"2024-09-20\",\n  \"expiry_date\": \"2025-09-20\",\n  \"price\": 6.50,\n  \"barcode\": \"7891234567890\",\n  \"notes\": \"Arroz integral orgânico\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "items"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.id) {",
+									"        pm.environment.set(\"itemId\", response.data.id);",
+									"        console.log(\"✅ Item ID salvo:\", response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Get Pantry Items",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/pantries/{{pantryId}}/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "pantries", "{{pantryId}}", "items"]
+						}
+					}
+				},
+				{
+					"name": "Get Item by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "items", "{{itemId}}"]
+						}
+					}
+				},
+				{
+					"name": "Update Item",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 1.5,\n  \"price\": 7.00,\n  \"notes\": \"Quantidade atualizada após uso\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "items", "{{itemId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "items", "{{itemId}}"]
+						}
+					}
+				},
+				{
+					"name": "Batch Create Items",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"pantry_id\": \"{{pantryId}}\",\n      \"name\": \"Feijão Preto\",\n      \"brand\": \"Camil\",\n      \"category\": \"Grãos\",\n      \"quantity\": 1.0,\n      \"unit\": \"kg\",\n      \"price\": 4.50\n    },\n    {\n      \"pantry_id\": \"{{pantryId}}\",\n      \"name\": \"Açúcar Cristal\",\n      \"brand\": \"União\",\n      \"category\": \"Doces\",\n      \"quantity\": 1.0,\n      \"unit\": \"kg\",\n      \"price\": 3.20\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/items/batch",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "items", "batch"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🤖 LLM Services",
+			"item": [
+				{
+					"name": "Generate Recipe",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"available_ingredients\": [\"frango\", \"arroz\", \"cebola\", \"tomate\", \"alho\"],\n  \"meal_type\": \"lunch\",\n  \"difficulty\": \"easy\",\n  \"dietary_restrictions\": [\"sem lactose\"],\n  \"cuisine_preference\": \"brasileira\",\n  \"serving_size\": 4,\n  \"cooking_time_max\": 45\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/llm/generate-recipe",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "llm", "generate-recipe"]
+						}
+					}
+				},
+				{
+					"name": "Analyze Nutrition",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recipe_name\": \"{{recipeName}}\",\n  \"ingredients\": [\n    \"500g de frango grelhado\",\n    \"200g de arroz integral\",\n    \"100g de brócolis\",\n    \"1 colher de azeite\"\n  ],\n  \"servings\": 2\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/llm/analyze-nutrition",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "llm", "analyze-nutrition"]
+						}
+					}
+				},
+				{
+					"name": "Suggest Recipes",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pantry_id\": \"{{pantryId}}\",\n  \"meal_type\": \"dinner\",\n  \"max_suggestions\": 5,\n  \"dietary_restrictions\": [\"vegetariano\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/llm/suggest-recipes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "llm", "suggest-recipes"]
+						}
+					}
+				},
+				{
+					"name": "Recipe Optimization",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recipe_name\": \"Estrogonofe de Frango\",\n  \"current_ingredients\": [\n    \"frango\",\n    \"creme de leite\",\n    \"champignon\",\n    \"batata palha\"\n  ],\n  \"optimization_goal\": \"healthier\",\n  \"constraints\": [\"sem lactose\", \"baixo sódio\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/llm/optimize-recipe",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "llm", "optimize-recipe"]
+						}
+					}
+				},
+				{
+					"name": "Smart Suggestions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_preferences\": {\n    \"favorite_cuisines\": [\"brasileira\", \"italiana\"],\n    \"dietary_restrictions\": [\"vegetariano\"],\n    \"cooking_skill\": \"intermediate\",\n    \"time_available\": 30\n  },\n  \"pantry_analysis\": true,\n  \"suggestion_type\": \"weekly_menu\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/llm/smart-suggestions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "llm", "smart-suggestions"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🍽️ Recipe Scraper",
+			"item": [
+				{
+					"name": "Extract Recipe from URL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"url\": \"https://www.tudogostoso.com.br/receita/112-bolo-de-cenoura.html\",\n  \"format_output\": true,\n  \"extract_nutrition\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/recipes/extract",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "recipes", "extract"]
+						}
+					}
+				},
+				{
+					"name": "Recipe Scraper Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/recipes/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "recipes", "health"]
+						}
+					}
+				},
+				{
+					"name": "Test Recipe Extraction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"test_urls\": [\n    \"https://www.tudogostoso.com.br/receita/2-brigadeiro.html\",\n    \"https://receitas.globo.com/tipos-de-prato/doces/brigadeiro-4f4cb0c64d3885266f000012.ghtml\"\n  ],\n  \"validate_extraction\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/recipes/test-extraction",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "recipes", "test-extraction"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Adicionar automaticamente headers de autorização",
+					"const token = pm.environment.get(\"authToken\");",
+					"if (token && !pm.request.headers.has(\"Authorization\")) {",
+					"    pm.request.headers.add({",
+					"        key: \"Authorization\", ",
+					"        value: \"Bearer \" + token",
+					"    });",
+					"}",
+					"",
+					"console.log(\"🚀 Executando:\", pm.request.method, pm.request.url.toString());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Log global de resposta",
+					"console.log(\"📥 Status:\", pm.response.code, pm.response.status);",
+					"",
+					"// Verificar se a resposta é JSON",
+					"try {",
+					"    const jsonResponse = pm.response.json();",
+					"    if (!jsonResponse.success && jsonResponse.error) {",
+					"        console.log(\"❌ Erro:\", jsonResponse.error.message);",
+					"    }",
+					"} catch (e) {",
+					"    // Resposta não é JSON, ignorar",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "apiVersion",
+			"value": "v1",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após login OAuth"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após login OAuth"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após login OAuth"
+		},
+		{
+			"key": "profileId",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após criar perfil"
+		},
+		{
+			"key": "pantryId",
+			"value": "550e8400-e29b-41d4-a716-446655440010",
+			"type": "string",
+			"description": "ID de pantry para testes"
+		},
+		{
+			"key": "shoppingListId",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após criar lista"
+		},
+		{
+			"key": "itemId",
+			"value": "",
+			"type": "string",
+			"description": "Auto-preenchido após criar item"
+		},
+		{
+			"key": "recipeName",
+			"value": "Frango Grelhado com Legumes",
+			"type": "string",
+			"description": "Nome de receita para testes"
+		}
+	]
+}

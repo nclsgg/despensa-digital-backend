@@ -18,10 +18,10 @@ type AuthService interface {
 	// Core methods (kept for OAuth)
 	HashPassword(password string) (string, error)
 	GenerateAccessToken(user *model.User) (string, error)
-	
+
 	// OAuth methods
-	GetUserByEmail(email string) (*model.User, error)
-	CreateUserOAuth(user *model.User) error
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	CreateUserOAuth(ctx context.Context, user *model.User) error
 	CompleteProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) error
 }
 

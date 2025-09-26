@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -90,22 +91,22 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 		GeneratedBy: "manual",
 	}
 
-	// Validate pantry access if PantryID is provided
 	if input.PantryID != nil {
 		hasAccess, err := s.pantryRepo.IsUserInPantry(ctx, *input.PantryID, userID)
-		if err != nil || !hasAccess {
-			return nil, fmt.Errorf("access denied or pantry not found")
+		if err != nil {
+			return nil, err
+		}
+		if !hasAccess {
+			return nil, domain.ErrPantryAccessDenied
 		}
 	}
 
-	// Calculate estimated cost
 	var estimatedCost float64
 	for _, itemDto := range input.Items {
 		estimatedCost += itemDto.EstimatedPrice * itemDto.Quantity
 	}
 	shoppingList.EstimatedCost = estimatedCost
 
-	// Create items
 	for _, itemDto := range input.Items {
 		item := &shoppingModel.ShoppingListItem{
 			Name:           itemDto.Name,
@@ -119,32 +120,40 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 			Source:         "manual",
 		}
 		if item.Priority == 0 {
-			item.Priority = 3 // default to low priority
+			item.Priority = 3
 		}
 		shoppingList.Items = append(shoppingList.Items, *item)
 	}
 
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("error creating shopping list: %w", err)
+		return nil, fmt.Errorf("create shopping list: %w", err)
 	}
 
-	return s.convertToResponseDTO(shoppingList), nil
+	created, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
+		}
+		return nil, fmt.Errorf("reload shopping list: %w", err)
+	}
+
+	return s.convertToResponseDTO(ctx, created), nil
 }
 
 func (s *shoppingListService) GetShoppingListByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*dto.ShoppingListResponseDTO, error) {
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("shopping list not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
 		}
-		return nil, fmt.Errorf("error getting shopping list: %w", err)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, fmt.Errorf("shopping list not found")
+		return nil, domain.ErrUnauthorized
 	}
 
-	return s.convertToResponseDTO(shoppingList), nil
+	return s.convertToResponseDTO(ctx, shoppingList), nil
 }
 
 func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*dto.ShoppingListSummaryDTO, error) {
@@ -153,21 +162,32 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 		return nil, fmt.Errorf("error getting shopping lists: %w", err)
 	}
 
-	var summaries []*dto.ShoppingListSummaryDTO
+	pantryNames := s.resolvePantryNames(ctx, shoppingLists)
+
+	summaries := make([]*dto.ShoppingListSummaryDTO, 0, len(shoppingLists))
 	for _, sl := range shoppingLists {
-		// Get item counts
-		items, _ := s.shoppingListRepo.GetItemsByShoppingListID(ctx, sl.ID)
-		itemCount := len(items)
+		itemCount := len(sl.Items)
 		purchasedCount := 0
-		for _, item := range items {
+		for _, item := range sl.Items {
 			if item.Purchased {
 				purchasedCount++
 			}
 		}
 
-		summary := &dto.ShoppingListSummaryDTO{
-			ID:             sl.ID,
-			PantryID:       sl.PantryID,
+		var pantryID *string
+		pantryName := ""
+		if sl.PantryID != nil {
+			idStr := sl.PantryID.String()
+			pantryID = &idStr
+			if name, ok := pantryNames[*sl.PantryID]; ok {
+				pantryName = name
+			}
+		}
+
+		summaries = append(summaries, &dto.ShoppingListSummaryDTO{
+			ID:             sl.ID.String(),
+			PantryID:       pantryID,
+			PantryName:     pantryName,
 			Name:           sl.Name,
 			Status:         sl.Status,
 			TotalBudget:    sl.TotalBudget,
@@ -176,18 +196,9 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 			GeneratedBy:    sl.GeneratedBy,
 			ItemCount:      itemCount,
 			PurchasedCount: purchasedCount,
-			CreatedAt:      sl.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:      sl.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-
-		// Get pantry name if PantryID is set
-		if sl.PantryID != nil {
-			pantry, err := s.pantryRepo.GetByID(ctx, *sl.PantryID)
-			if err == nil {
-				summary.PantryName = pantry.Name
-			}
-		}
-		summaries = append(summaries, summary)
+			CreatedAt:      sl.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      sl.UpdatedAt.Format(time.RFC3339),
+		})
 	}
 
 	return summaries, nil
@@ -196,17 +207,16 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("shopping list not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
 		}
-		return nil, fmt.Errorf("error getting shopping list: %w", err)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, fmt.Errorf("shopping list not found")
+		return nil, domain.ErrUnauthorized
 	}
 
-	// Update fields if provided
 	if input.Name != nil {
 		shoppingList.Name = *input.Name
 	}
@@ -221,60 +231,65 @@ func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uui
 	}
 
 	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("error updating shopping list: %w", err)
+		return nil, fmt.Errorf("update shopping list: %w", err)
 	}
 
-	return s.convertToResponseDTO(shoppingList), nil
+	updated, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
+		}
+		return nil, fmt.Errorf("reload shopping list: %w", err)
+	}
+
+	return s.convertToResponseDTO(ctx, updated), nil
 }
 
 func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("shopping list not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrShoppingListNotFound
 		}
-		return fmt.Errorf("error getting shopping list: %w", err)
+		return fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		return fmt.Errorf("shopping list not found")
+		return domain.ErrUnauthorized
 	}
 
 	if err := s.shoppingListRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("error deleting shopping list: %w", err)
+		return fmt.Errorf("delete shopping list: %w", err)
 	}
 
 	return nil
 }
 
 func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (*dto.ShoppingListItemResponseDTO, error) {
-	// First verify the shopping list belongs to the user
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("shopping list not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
 		}
-		return nil, fmt.Errorf("error getting shopping list: %w", err)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, fmt.Errorf("shopping list not found")
+		return nil, domain.ErrUnauthorized
 	}
 
-	// Find the item
 	var targetItem *shoppingModel.ShoppingListItem
-	for _, item := range shoppingList.Items {
-		if item.ID == itemID {
-			targetItem = &item
+	for idx := range shoppingList.Items {
+		if shoppingList.Items[idx].ID == itemID {
+			targetItem = &shoppingList.Items[idx]
 			break
 		}
 	}
 
 	if targetItem == nil {
-		return nil, fmt.Errorf("item not found")
+		return nil, domain.ErrItemNotFound
 	}
 
-	// Update fields if provided
 	if input.Name != nil {
 		targetItem.Name = *input.Name
 	}
@@ -304,27 +319,34 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	}
 
 	if err := s.shoppingListRepo.UpdateItem(ctx, targetItem); err != nil {
-		return nil, fmt.Errorf("error updating shopping list item: %w", err)
+		return nil, fmt.Errorf("update shopping list item: %w", err)
+	}
+
+	reloadedItems, err := s.shoppingListRepo.GetItemsByShoppingListID(ctx, shoppingListID)
+	if err == nil {
+		for _, item := range reloadedItems {
+			if item.ID == itemID {
+				return s.convertItemToResponseDTO(item), nil
+			}
+		}
 	}
 
 	return s.convertItemToResponseDTO(targetItem), nil
 }
 
 func (s *shoppingListService) DeleteShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID) error {
-	// First verify the shopping list belongs to the user
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("shopping list not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrShoppingListNotFound
 		}
-		return fmt.Errorf("error getting shopping list: %w", err)
+		return fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		return fmt.Errorf("shopping list not found")
+		return domain.ErrUnauthorized
 	}
 
-	// Verify the item exists in the shopping list
 	found := false
 	for _, item := range shoppingList.Items {
 		if item.ID == itemID {
@@ -334,86 +356,145 @@ func (s *shoppingListService) DeleteShoppingListItem(ctx context.Context, userID
 	}
 
 	if !found {
-		return fmt.Errorf("item not found")
+		return domain.ErrItemNotFound
 	}
 
 	if err := s.shoppingListRepo.DeleteItem(ctx, itemID); err != nil {
-		return fmt.Errorf("error deleting shopping list item: %w", err)
+		return fmt.Errorf("delete shopping list item: %w", err)
 	}
 
 	return nil
 }
 
 func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID uuid.UUID, input dto.GenerateAIShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
-	// Get user profile
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("error getting user profile: %w", err)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("get user profile: %w", err)
 	}
 
-	// Get the specific pantry and verify ownership
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		profile = nil
+	}
+
 	pantry, err := s.pantryRepo.GetByID(ctx, input.PantryID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("pantry not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrPantryNotFound
 		}
-		return nil, fmt.Errorf("error getting pantry: %w", err)
+		return nil, fmt.Errorf("get pantry: %w", err)
 	}
 
-	// Verify pantry ownership
-	if pantry.OwnerID != userID {
-		return nil, fmt.Errorf("pantry does not belong to user")
-	}
-
-	// Analyze pantry data and get insights for the selected pantry
-	pantries := []*pantryModel.Pantry{pantry}
-	pantryInsights, err := s.analyzePantryHistory(ctx, pantries)
+	hasAccess, err := s.pantryRepo.IsUserInPantry(ctx, input.PantryID, userID)
 	if err != nil {
-		return nil, fmt.Errorf("error analyzing pantry history: %w", err)
+		return nil, err
+	}
+	if !hasAccess {
+		return nil, domain.ErrPantryAccessDenied
 	}
 
-	// Build LLM prompt for shopping list generation
-	prompt, err := s.buildShoppingListPrompt(input, profile, pantryInsights)
+	pantryInsights, err := s.analyzePantryHistory(ctx, []*pantryModel.Pantry{pantry})
 	if err != nil {
-		return nil, fmt.Errorf("error building prompt: %w", err)
+		return nil, fmt.Errorf("analyze pantry history: %w", err)
 	}
 
-	// Call LLM to generate shopping list
+	budget := s.determineBudget(input, profile)
+	includeBasics := true
+	if input.IncludeBasics != nil {
+		includeBasics = *input.IncludeBasics
+	}
+
+	prompt, err := s.buildShoppingListPrompt(input, profile, pantryInsights, budget, includeBasics)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrPromptBuildFailed, err)
+	}
+
 	llmResponse, err := s.llmService.GenerateText(ctx, prompt, map[string]interface{}{
 		"max_tokens":      2000,
 		"temperature":     0.7,
 		"response_format": "json",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error generating AI shopping list: %w", err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrAIRequestFailed, err)
 	}
 
-	// Parse LLM response and create shopping list
-	shoppingList, err := s.parseAIResponse(userID, input, llmResponse.Response)
+	shoppingList, err := s.parseAIResponse(userID, input, budget, llmResponse.Response)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing AI response: %w", err)
+		return nil, err
 	}
 
-	// Create the shopping list in database
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("error creating AI shopping list: %w", err)
+		return nil, fmt.Errorf("create ai shopping list: %w", err)
 	}
 
-	return s.convertToResponseDTO(shoppingList), nil
+	created, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrShoppingListNotFound
+		}
+		return nil, fmt.Errorf("reload shopping list: %w", err)
+	}
+
+	return s.convertToResponseDTO(ctx, created), nil
 }
 
 // Helper methods
 
-func (s *shoppingListService) convertToResponseDTO(sl *shoppingModel.ShoppingList) *dto.ShoppingListResponseDTO {
-	var items []dto.ShoppingListItemResponseDTO
+func (s *shoppingListService) determineBudget(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile) float64 {
+	if input.MaxBudget != nil && *input.MaxBudget > 0 {
+		return *input.MaxBudget
+	}
+	if profile != nil {
+		if profile.PreferredBudget > 0 {
+			return profile.PreferredBudget
+		}
+		if profile.MonthlyIncome > 0 {
+			calculated := profile.MonthlyIncome * 0.15
+			if calculated > 0 {
+				return calculated
+			}
+		}
+	}
+	return 300.0
+}
+
+func (s *shoppingListService) resolvePantryNames(ctx context.Context, lists []*shoppingModel.ShoppingList) map[uuid.UUID]string {
+	names := make(map[uuid.UUID]string)
+	seen := make(map[uuid.UUID]struct{})
+	for _, sl := range lists {
+		if sl.PantryID == nil {
+			continue
+		}
+		id := *sl.PantryID
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		if pantry, err := s.pantryRepo.GetByID(ctx, id); err == nil {
+			names[id] = pantry.Name
+		}
+	}
+	return names
+}
+
+func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shoppingModel.ShoppingList) *dto.ShoppingListResponseDTO {
+	items := make([]dto.ShoppingListItemResponseDTO, 0, len(sl.Items))
 	for _, item := range sl.Items {
 		items = append(items, *s.convertItemToResponseDTO(&item))
 	}
 
-	responseDTO := &dto.ShoppingListResponseDTO{
-		ID:            sl.ID,
-		UserID:        sl.UserID,
-		PantryID:      sl.PantryID,
+	var pantryID *string
+	pantryName := ""
+	if sl.PantryID != nil {
+		idStr := sl.PantryID.String()
+		pantryID = &idStr
+		pantryName = s.lookupPantryName(ctx, *sl.PantryID)
+	}
+
+	return &dto.ShoppingListResponseDTO{
+		ID:            sl.ID.String(),
+		UserID:        sl.UserID.String(),
+		PantryID:      pantryID,
+		PantryName:    pantryName,
 		Name:          sl.Name,
 		Status:        sl.Status,
 		TotalBudget:   sl.TotalBudget,
@@ -421,25 +502,23 @@ func (s *shoppingListService) convertToResponseDTO(sl *shoppingModel.ShoppingLis
 		ActualCost:    sl.ActualCost,
 		GeneratedBy:   sl.GeneratedBy,
 		Items:         items,
-		CreatedAt:     sl.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:     sl.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:     sl.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     sl.UpdatedAt.Format(time.RFC3339),
 	}
+}
 
-	// Get pantry name if PantryID is set
-	if sl.PantryID != nil {
-		pantry, err := s.pantryRepo.GetByID(context.Background(), *sl.PantryID)
-		if err == nil {
-			responseDTO.PantryName = pantry.Name
-		}
+func (s *shoppingListService) lookupPantryName(ctx context.Context, pantryID uuid.UUID) string {
+	pantry, err := s.pantryRepo.GetByID(ctx, pantryID)
+	if err != nil {
+		return ""
 	}
-
-	return responseDTO
+	return pantry.Name
 }
 
 func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.ShoppingListItem) *dto.ShoppingListItemResponseDTO {
 	return &dto.ShoppingListItemResponseDTO{
-		ID:             item.ID,
-		ShoppingListID: item.ShoppingListID,
+		ID:             item.ID.String(),
+		ShoppingListID: item.ShoppingListID.String(),
 		Name:           item.Name,
 		Quantity:       item.Quantity,
 		Unit:           item.Unit,
@@ -451,8 +530,8 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		Purchased:      item.Purchased,
 		Notes:          item.Notes,
 		Source:         item.Source,
-		CreatedAt:      item.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:      item.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      item.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -498,30 +577,62 @@ func (s *shoppingListService) analyzePantryHistory(ctx context.Context, pantries
 	return insights, nil
 }
 
-func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile, insights *PantryInsights) (string, error) {
+func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile, insights *PantryInsights, budget float64, includeBasics bool) (string, error) {
+	shoppingType := input.ShoppingType
+	if shoppingType == "" {
+		shoppingType = "general"
+	}
+
 	prompt := fmt.Sprintf(`Você é um assistente especializado em criar listas de compras inteligentes para brasileiros.
 
 CONTEXTO DO USUÁRIO:
-- Orçamento para compras: R$ %.2f
+- Orçamento máximo: R$ %.2f
 - Tipo de compra: %s
 - Incluir itens básicos: %t
+`, budget, shoppingType, includeBasics)
 
-`, input.TotalBudget, input.ShoppingType, input.IncludeBasics)
+	if input.PeopleCount != nil {
+		prompt += fmt.Sprintf("- Número de pessoas atendidas: %d\n", *input.PeopleCount)
+	} else if profile != nil && profile.HouseholdSize > 0 {
+		prompt += fmt.Sprintf("- Número de pessoas atendidas: %d\n", profile.HouseholdSize)
+	}
 
 	if profile != nil {
-		prompt += fmt.Sprintf(`PERFIL DO USUÁRIO:
+		prompt += fmt.Sprintf(`
+PERFIL DO USUÁRIO:
 - Renda mensal: R$ %.2f
 - Orçamento preferido: R$ %.2f
-- Tamanho da família: %d pessoas
 - Frequência de compras: %s
-`, profile.MonthlyIncome, profile.PreferredBudget, profile.HouseholdSize, profile.ShoppingFrequency)
+`, profile.MonthlyIncome, profile.PreferredBudget, profile.ShoppingFrequency)
 
 		if len(profile.DietaryRestrictions) > 0 {
 			prompt += fmt.Sprintf("- Restrições alimentares: %s\n", strings.Join(profile.DietaryRestrictions, ", "))
 		}
+	}
 
-		if len(profile.PreferredBrands) > 0 {
-			prompt += fmt.Sprintf("- Marcas preferidas: %s\n", strings.Join(profile.PreferredBrands, ", "))
+	preferredBrands := make([]string, 0)
+	if profile != nil {
+		preferredBrands = append(preferredBrands, profile.PreferredBrands...)
+	}
+	if len(input.PreferredBrands) > 0 {
+		preferredBrands = append(preferredBrands, input.PreferredBrands...)
+	}
+	if len(preferredBrands) > 0 {
+		brandSet := make(map[string]struct{})
+		dedup := make([]string, 0, len(preferredBrands))
+		for _, brand := range preferredBrands {
+			brand = strings.TrimSpace(brand)
+			if brand == "" {
+				continue
+			}
+			if _, exists := brandSet[brand]; exists {
+				continue
+			}
+			brandSet[brand] = struct{}{}
+			dedup = append(dedup, brand)
+		}
+		if len(dedup) > 0 {
+			prompt += fmt.Sprintf("- Marcas preferidas: %s\n", strings.Join(dedup, ", "))
 		}
 	}
 
@@ -547,6 +658,10 @@ ANÁLISE DA DESPENSA:
 
 	if input.Notes != "" {
 		prompt += fmt.Sprintf("\nOBSERVAÇÕES ESPECIAIS: %s\n", input.Notes)
+	}
+
+	if input.Prompt != "" {
+		prompt += fmt.Sprintf("\nINSTRUÇÕES PERSONALIZADAS: %s\n", input.Prompt)
 	}
 
 	prompt += `
@@ -583,28 +698,28 @@ Crie a lista agora:`
 	return prompt, nil
 }
 
-func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, aiResponse string) (*shoppingModel.ShoppingList, error) {
+func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, aiResponse string) (*shoppingModel.ShoppingList, error) {
 	var aiList AIShoppingListResponse
 
-	// Clean the response - sometimes AI adds extra text
 	jsonStart := strings.Index(aiResponse, "{")
 	jsonEnd := strings.LastIndex(aiResponse, "}")
 	if jsonStart == -1 || jsonEnd == -1 {
-		return nil, fmt.Errorf("invalid JSON response from AI")
+		return nil, domain.ErrAIResponseInvalid
 	}
 
 	jsonResponse := aiResponse[jsonStart : jsonEnd+1]
 
 	if err := json.Unmarshal([]byte(jsonResponse), &aiList); err != nil {
-		return nil, fmt.Errorf("error parsing AI response: %w", err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
 	}
 
-	// Create shopping list
+	pantryID := input.PantryID
 	shoppingList := &shoppingModel.ShoppingList{
 		UserID:        userID,
+		PantryID:      &pantryID,
 		Name:          input.Name,
 		Status:        "pending",
-		TotalBudget:   input.TotalBudget,
+		TotalBudget:   budget,
 		EstimatedCost: aiList.EstimatedTotal,
 		GeneratedBy:   "ai",
 	}

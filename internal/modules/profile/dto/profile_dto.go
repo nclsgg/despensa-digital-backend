@@ -1,7 +1,5 @@
 package dto
 
-import "github.com/google/uuid"
-
 type CreateProfileDTO struct {
 	MonthlyIncome       float64  `json:"monthly_income" binding:"required,min=0"`
 	PreferredBudget     float64  `json:"preferred_budget" binding:"required,min=0"`
@@ -21,14 +19,14 @@ type UpdateProfileDTO struct {
 }
 
 type ProfileResponseDTO struct {
-	ID                  uuid.UUID `json:"id"`
-	UserID              uuid.UUID `json:"user_id"`
-	MonthlyIncome       float64   `json:"monthly_income"`
-	PreferredBudget     float64   `json:"preferred_budget"`
-	HouseholdSize       int       `json:"household_size"`
-	DietaryRestrictions []string  `json:"dietary_restrictions"`
-	PreferredBrands     []string  `json:"preferred_brands"`
-	ShoppingFrequency   string    `json:"shopping_frequency"`
-	CreatedAt           string    `json:"created_at"`
-	UpdatedAt           string    `json:"updated_at"`
+	ID                  string   `json:"id"`
+	UserID              string   `json:"user_id"`
+	MonthlyIncome       float64  `json:"monthly_income"`
+	PreferredBudget     float64  `json:"preferred_budget"`
+	HouseholdSize       int      `json:"household_size"`
+	DietaryRestrictions []string `json:"dietary_restrictions"`
+	PreferredBrands     []string `json:"preferred_brands"`
+	ShoppingFrequency   string   `json:"shopping_frequency"`
+	CreatedAt           string   `json:"created_at"`
+	UpdatedAt           string   `json:"updated_at"`
 }

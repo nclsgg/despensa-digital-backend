@@ -92,6 +92,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
 	itemRepoInstance := itemRepo.NewItemRepository(db)
 	pantryServiceInstance := pantryService.NewPantryService(pantryRepoInstance, userRepoInstance, itemRepoInstance)
+	itemServiceInstance := itemService.NewItemService(itemRepoInstance, pantryRepoInstance)
 
 	// Profile module setup
 	profileRepoInstance := profileRepo.NewProfileRepository(db)
@@ -117,7 +118,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	recipeHandlerInstance := recipeHandler.NewRecipeHandler(recipeServiceInstance, llmServiceInstance)
 
 	// Pantry routes
-	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance)
+	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance, itemServiceInstance)
 
 	pantryGroup := r.Group("/api/v1/pantries")
 	pantryGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
@@ -135,7 +136,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	}
 
 	// Item routes - reuse the itemRepoInstance
-	itemServiceInstance := itemService.NewItemService(itemRepoInstance, pantryRepoInstance)
 	itemHandlerInstance := itemHandler.NewItemHandler(itemServiceInstance)
 
 	itemGroup := r.Group("/api/v1/items")

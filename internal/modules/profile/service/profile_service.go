@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/profile/domain"
@@ -25,10 +27,10 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, in
 	// Check if profile already exists
 	existingProfile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err == nil && existingProfile != nil {
-		return nil, fmt.Errorf("profile already exists for user")
+		return nil, domain.ErrProfileAlreadyExists
 	}
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("error checking existing profile: %w", err)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("check existing profile: %w", err)
 	}
 
 	profile := &model.Profile{
@@ -36,13 +38,13 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, in
 		MonthlyIncome:       input.MonthlyIncome,
 		PreferredBudget:     input.PreferredBudget,
 		HouseholdSize:       input.HouseholdSize,
-		DietaryRestrictions: model.StringArray(input.DietaryRestrictions),
-		PreferredBrands:     model.StringArray(input.PreferredBrands),
+		DietaryRestrictions: model.StringArray(normalizeStringSlice(input.DietaryRestrictions)),
+		PreferredBrands:     model.StringArray(normalizeStringSlice(input.PreferredBrands)),
 		ShoppingFrequency:   input.ShoppingFrequency,
 	}
 
 	if err := s.profileRepo.Create(ctx, profile); err != nil {
-		return nil, fmt.Errorf("error creating profile: %w", err)
+		return nil, fmt.Errorf("create profile: %w", err)
 	}
 
 	return s.convertToResponseDTO(profile), nil
@@ -51,10 +53,10 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, in
 func (s *profileService) GetProfileByUserID(ctx context.Context, userID uuid.UUID) (*dto.ProfileResponseDTO, error) {
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("profile not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
 		}
-		return nil, fmt.Errorf("error getting profile: %w", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	return s.convertToResponseDTO(profile), nil
@@ -63,10 +65,10 @@ func (s *profileService) GetProfileByUserID(ctx context.Context, userID uuid.UUI
 func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, input dto.UpdateProfileDTO) (*dto.ProfileResponseDTO, error) {
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("profile not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
 		}
-		return nil, fmt.Errorf("error getting profile: %w", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	// Update fields if provided
@@ -80,17 +82,17 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 		profile.HouseholdSize = *input.HouseholdSize
 	}
 	if input.DietaryRestrictions != nil {
-		profile.DietaryRestrictions = model.StringArray(*input.DietaryRestrictions)
+		profile.DietaryRestrictions = model.StringArray(normalizeStringSlice(*input.DietaryRestrictions))
 	}
 	if input.PreferredBrands != nil {
-		profile.PreferredBrands = model.StringArray(*input.PreferredBrands)
+		profile.PreferredBrands = model.StringArray(normalizeStringSlice(*input.PreferredBrands))
 	}
 	if input.ShoppingFrequency != nil {
 		profile.ShoppingFrequency = *input.ShoppingFrequency
 	}
 
 	if err := s.profileRepo.Update(ctx, profile); err != nil {
-		return nil, fmt.Errorf("error updating profile: %w", err)
+		return nil, fmt.Errorf("update profile: %w", err)
 	}
 
 	return s.convertToResponseDTO(profile), nil
@@ -99,14 +101,14 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 func (s *profileService) DeleteProfile(ctx context.Context, userID uuid.UUID) error {
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("profile not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrProfileNotFound
 		}
-		return fmt.Errorf("error getting profile: %w", err)
+		return fmt.Errorf("get profile: %w", err)
 	}
 
 	if err := s.profileRepo.Delete(ctx, profile.ID); err != nil {
-		return fmt.Errorf("error deleting profile: %w", err)
+		return fmt.Errorf("delete profile: %w", err)
 	}
 
 	return nil
@@ -114,15 +116,29 @@ func (s *profileService) DeleteProfile(ctx context.Context, userID uuid.UUID) er
 
 func (s *profileService) convertToResponseDTO(profile *model.Profile) *dto.ProfileResponseDTO {
 	return &dto.ProfileResponseDTO{
-		ID:                  profile.ID,
-		UserID:              profile.UserID,
+		ID:                  profile.ID.String(),
+		UserID:              profile.UserID.String(),
 		MonthlyIncome:       profile.MonthlyIncome,
 		PreferredBudget:     profile.PreferredBudget,
 		HouseholdSize:       profile.HouseholdSize,
-		DietaryRestrictions: []string(profile.DietaryRestrictions),
-		PreferredBrands:     []string(profile.PreferredBrands),
+		DietaryRestrictions: toStringSlice(profile.DietaryRestrictions),
+		PreferredBrands:     toStringSlice(profile.PreferredBrands),
 		ShoppingFrequency:   profile.ShoppingFrequency,
-		CreatedAt:           profile.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:           profile.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:           profile.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:           profile.UpdatedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+func normalizeStringSlice(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
+func toStringSlice(values model.StringArray) []string {
+	if values == nil {
+		return []string{}
+	}
+	return append([]string(nil), values...)
 }
