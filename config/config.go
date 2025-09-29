@@ -2,8 +2,10 @@ package config
 
 import (
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -18,7 +20,7 @@ type Config struct {
 	RedisUsername string
 	Port          string
 	CorsOrigin    string
-	
+
 	// OAuth Config
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -27,7 +29,13 @@ type Config struct {
 	SessionSecret      string
 }
 
-func LoadConfig() *Config {
+func LoadConfig() (result0 *Config) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "LoadConfig"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "LoadConfig"), zap.Any("params", __logParams))
 	_ = godotenv.Load()
 
 	cfg := &Config{
@@ -42,7 +50,7 @@ func LoadConfig() *Config {
 		RedisUsername: os.Getenv("REDIS_USERNAME"),
 		Port:          getEnv("PORT", "3030"),
 		CorsOrigin:    getEnv("CORS_ORIGIN", "http://localhost:3000"),
-		
+
 		// OAuth Config
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
@@ -50,13 +58,21 @@ func LoadConfig() *Config {
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 		SessionSecret:      getEnv("SESSION_SECRET", "your-session-secret-here"),
 	}
-
-	return cfg
+	result0 = cfg
+	return
 }
 
-func getEnv(key string, fallback string) string {
+func getEnv(key string, fallback string) (result0 string) {
+	__logParams := map[string]any{"key": key, "fallback": fallback}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "getEnv"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "getEnv"), zap.Any("params", __logParams))
 	if value, exists := os.LookupEnv(key); exists {
-		return value
+		result0 = value
+		return
 	}
-	return fallback
+	result0 = fallback
+	return
 }

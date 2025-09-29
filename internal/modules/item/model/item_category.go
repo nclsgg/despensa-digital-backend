@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,12 @@ type ItemCategory struct {
 }
 
 func (i *ItemCategory) ApplyUpdate(input dto.UpdateItemCategoryDTO) {
+	__logParams := map[string]any{"i": i, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ItemCategory.ApplyUpdate"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ItemCategory.ApplyUpdate"), zap.Any("params", __logParams))
 	if input.Name != nil {
 		i.Name = *input.Name
 	}

@@ -4,40 +4,58 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+	"go.uber.org/zap"
 )
 
 type ShoppingListHandler struct {
 	shoppingListService domain.ShoppingListService
 }
 
-func NewShoppingListHandler(shoppingListService domain.ShoppingListService) *ShoppingListHandler {
-	return &ShoppingListHandler{
+func NewShoppingListHandler(shoppingListService domain.ShoppingListService) (result0 *ShoppingListHandler) {
+	__logParams := map[string]any{"shoppingListService": shoppingListService}
+	__logStart := time.Now(
+
+	// CreateShoppingList godoc
+	// @Summary Create shopping list
+	// @Description Create a new shopping list for the authenticated user
+	// @Tags shopping-list
+	// @Accept json
+	// @Produce json
+	// @Param shopping-list body dto.CreateShoppingListDTO true "Shopping list data"
+	// @Success 201 {object} response.APIResponse{data=dto.ShoppingListResponseDTO}
+	// @Failure 400 {object} response.APIResponse
+	// @Failure 401 {object} response.APIResponse
+	// @Failure 500 {object} response.APIResponse
+	// @Router /shopping-lists [post]
+	// @Security BearerAuth
+	)
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewShoppingListHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewShoppingListHandler"), zap.Any("params", __logParams))
+	result0 = &ShoppingListHandler{
 		shoppingListService: shoppingListService,
 	}
+	return
 }
 
-// CreateShoppingList godoc
-// @Summary Create shopping list
-// @Description Create a new shopping list for the authenticated user
-// @Tags shopping-list
-// @Accept json
-// @Produce json
-// @Param shopping-list body dto.CreateShoppingListDTO true "Shopping list data"
-// @Success 201 {object} response.APIResponse{data=dto.ShoppingListResponseDTO}
-// @Failure 400 {object} response.APIResponse
-// @Failure 401 {object} response.APIResponse
-// @Failure 500 {object} response.APIResponse
-// @Router /shopping-lists [post]
-// @Security BearerAuth
 func (h *ShoppingListHandler) CreateShoppingList(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.CreateShoppingList"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.CreateShoppingList"), zap.Any("params", __logParams))
 	var input dto.CreateShoppingListDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input: "+err.Error())
 		return
 	}
@@ -47,6 +65,7 @@ func (h *ShoppingListHandler) CreateShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.CreateShoppingList(c.Request.Context(), userUUID, input)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrPantryAccessDenied):
 			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
@@ -74,27 +93,53 @@ func (h *ShoppingListHandler) CreateShoppingList(c *gin.Context) {
 // @Router /shopping-lists [get]
 // @Security BearerAuth
 func (h *ShoppingListHandler) GetShoppingLists(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func
+
+	// Get pagination parameters
+	() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.GetShoppingLists"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.GetShoppingLists"), zap.Any("params", __logParams))
 	rawID, _ := c.Get("userID")
 	userUUID := rawID.(uuid.UUID)
 
-	// Get pagination parameters
 	limitStr := c.DefaultQuery("limit", "20")
 	offsetStr := c.DefaultQuery("offset", "0")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GetShoppingLists"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid limit parameter")
 		return
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GetShoppingLists"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid offset parameter")
 		return
 	}
 
 	shoppingLists, err := h.shoppingListService.GetShoppingListsByUserID(c.Request.Context(), userUUID, limit, offset)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GetShoppingLists"), zap.Error(err), zap.Any("params",
+
+			// GetShoppingList godoc
+			// @Summary Get shopping list by ID
+			// @Description Get a specific shopping list by ID
+			// @Tags shopping-list
+			// @Produce json
+			// @Param id path string true "Shopping list ID"
+			// @Success 200 {object} response.APIResponse{data=dto.ShoppingListResponseDTO}
+			// @Failure 400 {object} response.APIResponse
+			// @Failure 401 {object} response.APIResponse
+			// @Failure 404 {object} response.APIResponse
+			// @Failure 500 {object} response.APIResponse
+			// @Router /shopping-lists/{id} [get]
+			// @Security BearerAuth
+			__logParams))
 		response.InternalError(c, "Failed to fetch shopping lists")
 		return
 	}
@@ -102,32 +147,27 @@ func (h *ShoppingListHandler) GetShoppingLists(c *gin.Context) {
 	response.OK(c, shoppingLists)
 }
 
-// GetShoppingList godoc
-// @Summary Get shopping list by ID
-// @Description Get a specific shopping list by ID
-// @Tags shopping-list
-// @Produce json
-// @Param id path string true "Shopping list ID"
-// @Success 200 {object} response.APIResponse{data=dto.ShoppingListResponseDTO}
-// @Failure 400 {object} response.APIResponse
-// @Failure 401 {object} response.APIResponse
-// @Failure 404 {object} response.APIResponse
-// @Failure 500 {object} response.APIResponse
-// @Router /shopping-lists/{id} [get]
-// @Security BearerAuth
 func (h *ShoppingListHandler) GetShoppingList(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.GetShoppingList"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.GetShoppingList"), zap.Any("params", __logParams))
 	rawID, _ := c.Get("userID")
 	userUUID := rawID.(uuid.UUID)
 
 	idParam := c.Param("id")
 	shoppingListID, err := uuid.Parse(idParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GetShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid shopping list ID")
 		return
 	}
 
 	shoppingList, err := h.shoppingListService.GetShoppingListByID(c.Request.Context(), userUUID, shoppingListID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GetShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
@@ -158,8 +198,15 @@ func (h *ShoppingListHandler) GetShoppingList(c *gin.Context) {
 // @Router /shopping-lists/{id} [put]
 // @Security BearerAuth
 func (h *ShoppingListHandler) UpdateShoppingList(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.UpdateShoppingList"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.UpdateShoppingList"), zap.Any("params", __logParams))
 	var input dto.UpdateShoppingListDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input: "+err.Error())
 		return
 	}
@@ -170,12 +217,14 @@ func (h *ShoppingListHandler) UpdateShoppingList(c *gin.Context) {
 	idParam := c.Param("id")
 	shoppingListID, err := uuid.Parse(idParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid shopping list ID")
 		return
 	}
 
 	shoppingList, err := h.shoppingListService.UpdateShoppingList(c.Request.Context(), userUUID, shoppingListID, input)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
@@ -204,18 +253,26 @@ func (h *ShoppingListHandler) UpdateShoppingList(c *gin.Context) {
 // @Router /shopping-lists/{id} [delete]
 // @Security BearerAuth
 func (h *ShoppingListHandler) DeleteShoppingList(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.DeleteShoppingList"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.DeleteShoppingList"), zap.Any("params", __logParams))
 	rawID, _ := c.Get("userID")
 	userUUID := rawID.(uuid.UUID)
 
 	idParam := c.Param("id")
 	shoppingListID, err := uuid.Parse(idParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid shopping list ID")
 		return
 	}
 
 	err = h.shoppingListService.DeleteShoppingList(c.Request.Context(), userUUID, shoppingListID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
@@ -247,8 +304,15 @@ func (h *ShoppingListHandler) DeleteShoppingList(c *gin.Context) {
 // @Router /shopping-lists/{id}/items/{itemId} [put]
 // @Security BearerAuth
 func (h *ShoppingListHandler) UpdateShoppingListItem(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Any("params", __logParams))
 	var input dto.UpdateShoppingListItemDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input: "+err.Error())
 		return
 	}
@@ -259,6 +323,7 @@ func (h *ShoppingListHandler) UpdateShoppingListItem(c *gin.Context) {
 	idParam := c.Param("id")
 	shoppingListID, err := uuid.Parse(idParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid shopping list ID")
 		return
 	}
@@ -266,12 +331,14 @@ func (h *ShoppingListHandler) UpdateShoppingListItem(c *gin.Context) {
 	itemIdParam := c.Param("itemId")
 	itemID, err := uuid.Parse(itemIdParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid item ID")
 		return
 	}
 
 	item, err := h.shoppingListService.UpdateShoppingListItem(c.Request.Context(), userUUID, shoppingListID, itemID, input)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
@@ -303,12 +370,19 @@ func (h *ShoppingListHandler) UpdateShoppingListItem(c *gin.Context) {
 // @Router /shopping-lists/{id}/items/{itemId} [delete]
 // @Security BearerAuth
 func (h *ShoppingListHandler) DeleteShoppingListItem(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.DeleteShoppingListItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.DeleteShoppingListItem"), zap.Any("params", __logParams))
 	rawID, _ := c.Get("userID")
 	userUUID := rawID.(uuid.UUID)
 
 	idParam := c.Param("id")
 	shoppingListID, err := uuid.Parse(idParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.DeleteShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid shopping list ID")
 		return
 	}
@@ -316,12 +390,14 @@ func (h *ShoppingListHandler) DeleteShoppingListItem(c *gin.Context) {
 	itemIdParam := c.Param("itemId")
 	itemID, err := uuid.Parse(itemIdParam)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.DeleteShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid item ID")
 		return
 	}
 
 	err = h.shoppingListService.DeleteShoppingListItem(c.Request.Context(), userUUID, shoppingListID, itemID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.DeleteShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrShoppingListNotFound):
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
@@ -353,8 +429,15 @@ func (h *ShoppingListHandler) DeleteShoppingListItem(c *gin.Context) {
 // @Router /shopping-lists/generate [post]
 // @Security BearerAuth
 func (h *ShoppingListHandler) GenerateAIShoppingList(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.GenerateAIShoppingList"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.GenerateAIShoppingList"), zap.Any("params", __logParams))
 	var input dto.GenerateAIShoppingListDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input: "+err.Error())
 		return
 	}
@@ -364,6 +447,7 @@ func (h *ShoppingListHandler) GenerateAIShoppingList(c *gin.Context) {
 
 	shoppingList, err := h.shoppingListService.GenerateAIShoppingList(c.Request.Context(), userUUID, input)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, domain.ErrPantryNotFound):
 			response.Fail(c, http.StatusNotFound, "PANTRY_NOT_FOUND", "Pantry not found")

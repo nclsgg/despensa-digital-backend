@@ -7,10 +7,19 @@ import (
 	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	"go.uber.org/zap"
 )
 
 func TestGeminiProvider_Chat(t *testing.T) {
-	// Pula o teste se não há API key configurada
+	__logParams :=
+		// Pula o teste se não há API key configurada
+		map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGeminiProvider_Chat"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGeminiProvider_Chat"), zap.Any("params", __logParams))
+
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		t.Skip("GEMINI_API_KEY não configurado, pulando teste de integração")
@@ -145,6 +154,12 @@ func TestGeminiProvider_Chat(t *testing.T) {
 }
 
 func TestGeminiProvider_ValidateConfig(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGeminiProvider_ValidateConfig"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGeminiProvider_ValidateConfig"), zap.Any("params", __logParams))
 	tests := []struct {
 		name        string
 		config      *model.LLMConfig
@@ -186,7 +201,15 @@ func TestGeminiProvider_ValidateConfig(t *testing.T) {
 }
 
 func TestGeminiProvider_IsHealthy(t *testing.T) {
-	// Pula o teste se não há API key configurada
+	__logParams :=
+		// Pula o teste se não há API key configurada
+		map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGeminiProvider_IsHealthy"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGeminiProvider_IsHealthy"), zap.Any("params", __logParams))
+
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		t.Skip("GEMINI_API_KEY não configurado, pulando teste de health check")
@@ -208,14 +231,24 @@ func TestGeminiProvider_IsHealthy(t *testing.T) {
 
 	err := provider.IsHealthy(ctx)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestGeminiProvider_IsHealthy"),
+
+			// Não falhamos o teste aqui pois pode ser rate limiting ou rede
+			zap.Error(err), zap.Any("params", __logParams))
 		t.Logf("Health check falhou (pode ser devido a rate limiting): %v", err)
-		// Não falhamos o teste aqui pois pode ser rate limiting ou rede
+
 	} else {
 		t.Log("Health check passou com sucesso")
 	}
 }
 
 func TestGeminiProvider_ConvertMessages(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGeminiProvider_ConvertMessages"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGeminiProvider_ConvertMessages"), zap.Any("params", __logParams))
 	config := &model.LLMConfig{
 		Provider: model.ProviderGemini,
 		APIKey:   "test-key",
@@ -256,6 +289,12 @@ func TestGeminiProvider_ConvertMessages(t *testing.T) {
 }
 
 func TestGeminiProvider_ConvertFinishReason(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGeminiProvider_ConvertFinishReason"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGeminiProvider_ConvertFinishReason"), zap.Any("params", __logParams))
 	config := &model.LLMConfig{
 		Provider: model.ProviderGemini,
 		APIKey:   "test-key",

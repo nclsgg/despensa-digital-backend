@@ -3,30 +3,48 @@ package repository_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/repository"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
+func setupTestDB(t *testing.T) (result0 *gorm.DB) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "setupTestDB"), zap.Any("result",
+
+			// Realiza a migração para a tabela de User
+			result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "setupTestDB"), zap.Any("params", __logParams))
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "setupTestDB"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("Erro ao abrir o banco de dados: %v", err)
 	}
 
-	// Realiza a migração para a tabela de User
 	if err := db.AutoMigrate(&model.User{}); err != nil {
+		zap.L().Error("function.error", zap.String("func", "setupTestDB"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("Erro ao migrar o banco de dados: %v", err)
 	}
-
-	return db
+	result0 = db
+	return
 }
 
 func TestGetUserById(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGetUserById"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGetUserById"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewUserRepository(db)
 	ctx := context.Background()
@@ -48,6 +66,12 @@ func TestGetUserById(t *testing.T) {
 }
 
 func TestGetUserByEmail(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGetUserByEmail"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGetUserByEmail"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewUserRepository(db)
 	ctx := context.Background()
@@ -69,6 +93,12 @@ func TestGetUserByEmail(t *testing.T) {
 }
 
 func TestGetAllUsers(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGetAllUsers"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGetAllUsers"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewUserRepository(db)
 	ctx := context.Background()

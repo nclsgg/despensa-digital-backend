@@ -12,6 +12,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/provider"
+	"go.uber.org/zap"
 )
 
 // LLMServiceImpl implementa a interface LLMService
@@ -23,59 +24,100 @@ type LLMServiceImpl struct {
 }
 
 // NewLLMService cria uma nova instância do serviço LLM
-func NewLLMService() *LLMServiceImpl {
+func NewLLMService() (result0 *LLMServiceImpl) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewLLMService"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// Auto-configure OpenAI if environment variables are available
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewLLMService"), zap.Any("params", __logParams))
 	service := &LLMServiceImpl{
 		factory:       provider.NewProviderFactory(),
 		promptBuilder: NewPromptBuilder(),
 		configs:       make(map[string]*model.LLMConfig),
 	}
 
-	// Auto-configure OpenAI if environment variables are available
 	service.initializeDefaultProviders()
-
-	return service
+	result0 = service
+	return
 }
 
 // AddProviderConfig adiciona uma configuração de provedor
-func (s *LLMServiceImpl) AddProviderConfig(providerName string, config *model.LLMConfig) error {
-	// Valida se o provedor é suportado
+func (s *LLMServiceImpl) AddProviderConfig(providerName string, config *model.LLMConfig) (result0 error) {
+	__logParams :=
+		// Valida se o provedor é suportado
+		map[string]any{"s": s, "providerName": providerName, "config": config}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.AddProviderConfig"),
+
+			// Testa a configuração criando um provedor temporário
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.AddProviderConfig"), zap.Any("params", __logParams))
+
 	if !s.factory.IsProviderSupported(config.Provider) {
-		return fmt.Errorf("provedor '%s' não é suportado", config.Provider)
+		result0 = fmt.Errorf("provedor '%s' não é suportado", config.Provider)
+		return
 	}
 
-	// Testa a configuração criando um provedor temporário
 	_, err := s.factory.CreateProvider(config)
 	if err != nil {
-		return fmt.Errorf("configuração inválida: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.AddProviderConfig"), zap.Error(err), zap.
+
+			// Define como ativo se for o primeiro
+			Any("params", __logParams))
+		result0 = fmt.Errorf("configuração inválida: %w", err)
+		return
 	}
 
 	s.configs[providerName] = config
 
-	// Define como ativo se for o primeiro
 	if s.activeProvider == "" {
 		s.activeProvider = providerName
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
 // ProcessRequest processa uma requisição genérica de LLM
-func (s *LLMServiceImpl) ProcessRequest(ctx context.Context, request *dto.LLMRequestDTO) (*dto.LLMResponseDTO, error) {
-	// Se um provedor específico foi especificado, usa ele
+func (s *LLMServiceImpl) ProcessRequest(ctx context.Context, request *dto.LLMRequestDTO) (result0 *dto.LLMResponseDTO, result1 error) {
+	__logParams :=
+		// Se um provedor específico foi especificado, usa ele
+		map[string]any{"s": s, "ctx": ctx, "request": request}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.ProcessRequest"),
+
+			// Converte DTO para modelo interno
+			zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.
+
+				// Obtém o provedor ativo
+				Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.ProcessRequest"),
+
+		// Define o modelo se não especificado
+		zap.Any("params", __logParams))
+
 	if request.Provider != "" {
-		return s.ProcessRequestWithProvider(ctx, request, request.Provider)
+		result0, result1 = s.ProcessRequestWithProvider(ctx, request, request.Provider)
+		return
 	}
 
-	// Converte DTO para modelo interno
 	llmRequest := request.ToLLMRequest()
 
-	// Obtém o provedor ativo
 	provider, err := s.getActiveProvider()
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.ProcessRequest"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 
-	// Define o modelo se não especificado
 	if llmRequest.Model == "" {
 		llmRequest.Model = provider.GetModel()
 	}
@@ -83,28 +125,53 @@ func (s *LLMServiceImpl) ProcessRequest(ctx context.Context, request *dto.LLMReq
 	// Executa a requisição
 	response, err := provider.Chat(ctx, llmRequest)
 	if err != nil {
-		return nil, err
-	}
+		zap.L().Error("function.error",
 
-	// Converte resposta para DTO
-	return dto.FromLLMResponse(response), nil
+			// Converte resposta para DTO
+			zap.String("func", "*LLMServiceImpl.ProcessRequest"), zap.Error(err), zap.Any("params",
+
+				// ProcessRequestWithProvider processa uma requisição usando um provedor específico
+				__logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+	result0 = dto.FromLLMResponse(response)
+	result1 = nil
+	return
 }
 
-// ProcessRequestWithProvider processa uma requisição usando um provedor específico
-func (s *LLMServiceImpl) ProcessRequestWithProvider(ctx context.Context, request *dto.LLMRequestDTO, providerName string) (*dto.LLMResponseDTO, error) {
-	// Verifica se o provedor existe e está configurado
+func (s *LLMServiceImpl) ProcessRequestWithProvider(ctx context.Context, request *dto.LLMRequestDTO, providerName string) (result0 *dto.LLMResponseDTO, result1 error) {
+	__logParams :=
+		// Verifica se o provedor existe e está configurado
+		map[string]any{"s": s, "ctx": ctx, "request": request, "providerName": providerName}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.ProcessRequestWithProvider"),
+
+			// Cria o provedor temporariamente
+			zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.ProcessRequestWithProvider"),
+
+		// Converte DTO para modelo interno
+		zap.Any("params", __logParams))
+
 	config, exists := s.configs[providerName]
 	if !exists {
-		return nil, fmt.Errorf("provedor '%s' não está configurado", providerName)
+		result0 = nil
+		result1 = fmt.Errorf("provedor '%s' não está configurado", providerName)
+		return
 	}
 
-	// Cria o provedor temporariamente
 	provider, err := s.factory.CreateProvider(config)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar provedor '%s': %w", providerName, err)
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.ProcessRequestWithProvider"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao criar provedor '%s': %w", providerName, err)
+		return
 	}
 
-	// Converte DTO para modelo interno
 	llmRequest := request.ToLLMRequest()
 
 	// Define o modelo se não especificado
@@ -115,22 +182,41 @@ func (s *LLMServiceImpl) ProcessRequestWithProvider(ctx context.Context, request
 	// Executa a requisição
 	response, err := provider.Chat(ctx, llmRequest)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error",
+
+			// Converte resposta para DTO e adiciona informação do provedor usado
+			zap.String("func", "*LLMServiceImpl.ProcessRequestWithProvider"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 
-	// Converte resposta para DTO e adiciona informação do provedor usado
 	responseDTO := dto.FromLLMResponse(response)
 	if responseDTO.Metadata == nil {
 		responseDTO.Metadata = make(map[string]string)
 	}
 	responseDTO.Metadata["used_provider"] = providerName
-
-	return responseDTO, nil
+	result0 = responseDTO
+	result1 = nil
+	return
 }
 
 // ProcessChatRequest processa uma requisição de chat simples
-func (s *LLMServiceImpl) ProcessChatRequest(ctx context.Context, request *dto.ChatRequestDTO) (*dto.ChatResponseDTO, error) {
-	// Cria uma requisição LLM baseada no chat
+func (s *LLMServiceImpl) ProcessChatRequest(ctx context.Context, request *dto.ChatRequestDTO) (result0 *dto.ChatResponseDTO, result1 error) {
+	__logParams :=
+		// Cria uma requisição LLM baseada no chat
+		map[string]any{"s": s, "ctx": ctx, "request": request}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.ProcessChatRequest"), zap.Any("result", map[string]any{"result0": result0,
+
+			// Adiciona contexto se fornecido
+			"result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+
+		// Adiciona mensagem de sistema com contexto
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.ProcessChatRequest"), zap.Any("params", __logParams))
+
 	llmRequest := &dto.LLMRequestDTO{
 		Messages: []dto.MessageDTO{
 			{
@@ -141,9 +227,8 @@ func (s *LLMServiceImpl) ProcessChatRequest(ctx context.Context, request *dto.Ch
 		Provider: request.Provider,
 	}
 
-	// Adiciona contexto se fornecido
 	if request.Context != "" {
-		// Adiciona mensagem de sistema com contexto
+
 		systemMessage := dto.MessageDTO{
 			Role:    "system",
 			Content: "Contexto: " + request.Context,
@@ -168,21 +253,41 @@ func (s *LLMServiceImpl) ProcessChatRequest(ctx context.Context, request *dto.Ch
 	}
 
 	if err != nil {
-		return nil, err
-	}
+		zap.L().Error("function.error",
 
-	// Converte para ChatResponseDTO
-	return &dto.ChatResponseDTO{
+			// Converte para ChatResponseDTO
+			zap.String("func", "*LLMServiceImpl.ProcessChatRequest"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+	result0 = &dto.ChatResponseDTO{
 		Response: response.Response,
 		Provider: usedProvider,
 		Model:    response.Model,
 		Usage:    response.Usage,
-	}, nil
+	}
+	result1 = nil
+	return
 }
 
 // GenerateText gera texto baseado em um prompt
-func (s *LLMServiceImpl) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (*dto.LLMResponseDTO, error) {
-	// Cria mensagens básicas
+func (s *LLMServiceImpl) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (result0 *dto.LLMResponseDTO, result1 error) {
+	__logParams :=
+		// Cria mensagens básicas
+		map[string]any{"s": s, "ctx": ctx, "prompt": prompt, "options": options}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit",
+
+			// Cria requisição
+			zap.String("func", "*LLMServiceImpl.GenerateText"), zap.Any("result", map[string]any{
+
+				// Aplica opções
+				"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.GenerateText"), zap.Any("params", __logParams))
+
 	messages := []model.Message{
 		{
 			Role:    model.RoleUser,
@@ -190,12 +295,10 @@ func (s *LLMServiceImpl) GenerateText(ctx context.Context, prompt string, option
 		},
 	}
 
-	// Cria requisição
 	request := &model.LLMRequest{
 		Messages: messages,
 	}
 
-	// Aplica opções
 	if maxTokens, ok := options["max_tokens"].(int); ok {
 		request.MaxTokens = maxTokens
 	}
@@ -209,61 +312,131 @@ func (s *LLMServiceImpl) GenerateText(ctx context.Context, prompt string, option
 	// Obtém o provedor ativo
 	provider, err := s.getActiveProvider()
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error",
+
+			// Executa a requisição
+			zap.String("func", "*LLMServiceImpl.GenerateText"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 
-	// Executa a requisição
 	response, err := provider.Chat(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("erro na geração de texto: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.GenerateText"), zap.Error(err), zap.Any("params", __logParams))
+
+		// BuildPrompt constrói um prompt usando um template
+		result0 = nil
+		result1 = fmt.Errorf("erro na geração de texto: %w", err)
+		return
 	}
-
-	return dto.FromLLMResponse(response), nil
+	result0 = dto.FromLLMResponse(response)
+	result1 = nil
+	return
 }
 
-// BuildPrompt constrói um prompt usando um template
-func (s *LLMServiceImpl) BuildPrompt(ctx context.Context, templateID string, variables map[string]string) (string, error) {
-	// TODO: Implementar busca de template no repositório
-	// Por enquanto, retorna erro
-	return "", fmt.Errorf("busca de templates não implementada")
+func (s *LLMServiceImpl) BuildPrompt(ctx context.Context, templateID string, variables map[string]string) (result0 string, result1 error) {
+	__logParams :=
+		// TODO: Implementar busca de template no repositório
+		// Por enquanto, retorna erro
+		map[string]any{"s": s, "ctx": ctx, "templateID": templateID, "variables": variables}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String(
+
+			// GetAvailableProviders retorna os provedores disponíveis
+			"func", "*LLMServiceImpl.BuildPrompt"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().
+
+		// SetProvider define o provedor ativo
+		Info("function.entry", zap.String("func", "*LLMServiceImpl.BuildPrompt"), zap.Any("params", __logParams))
+	result0 = ""
+	result1 = fmt.Errorf("busca de templates não implementada")
+	return
 }
 
-// GetAvailableProviders retorna os provedores disponíveis
-func (s *LLMServiceImpl) GetAvailableProviders() []string {
-	return s.factory.GetSupportedProviders()
+func (s *LLMServiceImpl) GetAvailableProviders() (result0 []string) {
+	__logParams := map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.GetAvailableProviders"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.GetAvailableProviders"), zap.Any("params",
+
+		// GetCurrentProvider retorna o provedor atual
+		__logParams))
+	result0 = s.factory.GetSupportedProviders()
+	return
 }
 
-// SetProvider define o provedor ativo
-func (s *LLMServiceImpl) SetProvider(providerName string) error {
+func (s *LLMServiceImpl) SetProvider(providerName string) (result0 error) {
+	__logParams := map[string]any{"s": s, "providerName": providerName}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.SetProvider"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.SetProvider"),
+
+		// getActiveProvider obtém o provedor ativo
+		zap.Any("params", __logParams))
 	if _, exists := s.configs[providerName]; !exists {
-		return fmt.Errorf("provedor '%s' não configurado", providerName)
+		result0 = fmt.Errorf("provedor '%s' não configurado", providerName)
+		return
 	}
 
 	s.activeProvider = providerName
-	return nil
+	result0 = nil
+	return
 }
 
-// GetCurrentProvider retorna o provedor atual
-func (s *LLMServiceImpl) GetCurrentProvider() string {
-	return s.activeProvider
+func (s *LLMServiceImpl) GetCurrentProvider() (result0 string) {
+	__logParams := map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.GetCurrentProvider"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.GetCurrentProvider"), zap.Any("params", __logParams))
+	result0 = s.activeProvider
+	return
 }
 
-// getActiveProvider obtém o provedor ativo
-func (s *LLMServiceImpl) getActiveProvider() (domain.LLMProvider, error) {
+func (s *LLMServiceImpl) getActiveProvider() (result0 domain.LLMProvider, result1 error) {
+	__logParams := map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.getActiveProvider"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func",
+
+		// CreateChatRequest cria uma requisição de chat com system e user prompts
+		"*LLMServiceImpl.getActiveProvider"), zap.Any("params", __logParams))
 	if s.activeProvider == "" {
-		return nil, fmt.Errorf("nenhum provedor ativo configurado")
+		result0 = nil
+		result1 = fmt.Errorf("nenhum provedor ativo configurado")
+		return
 	}
 
 	config, exists := s.configs[s.activeProvider]
 	if !exists {
-		return nil, fmt.Errorf("configuração não encontrada para provedor '%s'", s.activeProvider)
+		result0 = nil
+		result1 = fmt.Errorf("configuração não encontrada para provedor '%s'", s.activeProvider)
+		return
 	}
-
-	return s.factory.CreateProvider(config)
+	result0, result1 = s.factory.CreateProvider(config)
+	return
 }
 
-// CreateChatRequest cria uma requisição de chat com system e user prompts
-func (s *LLMServiceImpl) CreateChatRequest(systemPrompt, userPrompt string, options map[string]interface{}) *dto.LLMRequestDTO {
+func (s *LLMServiceImpl) CreateChatRequest(systemPrompt, userPrompt string, options map[string]interface{}) (result0 *dto.LLMRequestDTO) {
+	__logParams := map[string]any{"s": s, "systemPrompt": systemPrompt, "userPrompt": userPrompt, "options": options}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.CreateChatRequest"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.CreateChatRequest"), zap.Any("params",
+
+		// Aplica opções
+		__logParams))
 	messages := []dto.MessageDTO{}
 
 	if systemPrompt != "" {
@@ -284,7 +457,6 @@ func (s *LLMServiceImpl) CreateChatRequest(systemPrompt, userPrompt string, opti
 		Messages: messages,
 	}
 
-	// Aplica opções
 	if maxTokens, ok := options["max_tokens"].(int); ok {
 		request.MaxTokens = maxTokens
 	}
@@ -294,52 +466,94 @@ func (s *LLMServiceImpl) CreateChatRequest(systemPrompt, userPrompt string, opti
 	if topP, ok := options["top_p"].(float64); ok {
 		request.TopP = topP
 	}
-
-	return request
+	result0 = request
+	return
 }
 
 // EstimateTokens estima tokens usando o provedor ativo
-func (s *LLMServiceImpl) EstimateTokens(text string) (int, error) {
+func (s *LLMServiceImpl) EstimateTokens(text string) (result0 int, result1 error) {
+	__logParams := map[string]any{"s": s, "text": text}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.EstimateTokens"),
+
+			// GenerateID gera um ID único para requisições
+			zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+
+		// GetProviderInfo retorna informações sobre o provedor ativo
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.EstimateTokens"), zap.Any("params", __logParams))
 	provider, err := s.getActiveProvider()
 	if err != nil {
-		return 0, err
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.EstimateTokens"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = 0
+		result1 = err
+		return
 	}
-
-	return provider.EstimateTokens(text), nil
+	result0 = provider.EstimateTokens(text)
+	result1 = nil
+	return
 }
 
-// GenerateID gera um ID único para requisições
-func (s *LLMServiceImpl) GenerateID() string {
-	return uuid.New().String()
+func (s *LLMServiceImpl) GenerateID() (result0 string) {
+	__logParams := map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.GenerateID"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.GenerateID"), zap.Any("params", __logParams))
+	result0 = uuid.New().String()
+	return
 }
 
-// GetProviderInfo retorna informações sobre o provedor ativo
-func (s *LLMServiceImpl) GetProviderInfo() (map[string]interface{}, error) {
+func (s *LLMServiceImpl) GetProviderInfo() (result0 map[string]interface{}, result1 error) {
+	__logParams := map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.GetProviderInfo"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.GetProviderInfo"), zap.Any("params", __logParams))
 	if s.activeProvider == "" {
-		return nil, fmt.Errorf("nenhum provedor ativo")
+		result0 = nil
+		result1 = fmt.Errorf("nenhum provedor ativo")
+		return
 	}
 
 	config, exists := s.configs[s.activeProvider]
 	if !exists {
-		return nil, fmt.Errorf("configuração não encontrada")
+		result0 = nil
+		result1 = fmt.Errorf("configuração não encontrada")
+		return
 	}
 
 	provider, err := s.getActiveProvider()
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*LLMServiceImpl.GetProviderInfo"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
-
-	return map[string]interface{}{
+	result0 = map[string]interface{}{
 		"name":     provider.GetProviderName(),
 		"model":    provider.GetModel(),
 		"provider": s.activeProvider,
 		"timeout":  config.Timeout,
-	}, nil
+	}
+	result1 = nil
+	return
 }
 
 // initializeDefaultProviders configura automaticamente provedores com base nas variáveis de ambiente
 func (s *LLMServiceImpl) initializeDefaultProviders() {
-	// Verifica se Gemini está configurado (configurado primeiro para ser o padrão)
+	__logParams :=
+		// Verifica se Gemini está configurado (configurado primeiro para ser o padrão)
+		map[string]any{"s": s}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMServiceImpl.initializeDefaultProviders"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMServiceImpl.initializeDefaultProviders"), zap.Any("params", __logParams))
+
 	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
 		geminiConfig := &model.LLMConfig{
 			Provider:    model.ProviderGemini,

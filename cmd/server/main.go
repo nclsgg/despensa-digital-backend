@@ -1,15 +1,18 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nclsgg/despensa-digital/backend/config"
 	"github.com/nclsgg/despensa-digital/backend/internal/router"
 	"github.com/nclsgg/despensa-digital/backend/pkg/database"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 )
 
 // @title Despensa Digital API
@@ -27,6 +30,15 @@ import (
 // @host localhost:5310
 // @BasePath /
 func main() {
+	cleanupLogger := appLogger.Setup(os.Getenv("GIN_MODE"))
+	defer cleanupLogger()
+
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "main"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "main"), zap.Any("params", __logParams))
 	cfg := config.LoadConfig()
 	db := database.ConnectPostgres(cfg)
 	redis := database.ConnectRedis(cfg)

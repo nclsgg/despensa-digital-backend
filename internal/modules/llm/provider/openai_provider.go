@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	"go.uber.org/zap"
 )
 
 // OpenAIProvider implementa o provedor OpenAI
@@ -20,29 +21,47 @@ type OpenAIProvider struct {
 }
 
 // NewOpenAIProvider cria uma nova instância do provedor OpenAI
-func NewOpenAIProvider(config *model.LLMConfig) *OpenAIProvider {
+func NewOpenAIProvider(config *model.LLMConfig) (result0 *OpenAIProvider) {
+	__logParams := map[string]any{"config": config}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewOpenAIProvider"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// Chat realiza uma conversa com o OpenAI
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewOpenAIProvider"), zap.Any("params", __logParams))
 	timeout := config.Timeout
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
-
-	return &OpenAIProvider{
+	result0 = &OpenAIProvider{
 		config: config,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
 	}
+	return
 }
 
-// Chat realiza uma conversa com o OpenAI
-func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (*model.LLMResponse, error) {
-	// Prepara a requisição para a API da OpenAI
+func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (result0 *model.LLMResponse, result1 error) {
+	__logParams :=
+		// Prepara a requisição para a API da OpenAI
+		map[string]any{"p": p, "ctx": ctx, "request": request}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.Chat"), zap.Any("result", map[string]any{
+
+			// Adiciona parâmetros opcionais
+			"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.Chat"), zap.Any("params", __logParams))
+
 	openAIRequest := map[string]interface{}{
 		"model":    p.getModel(request.Model),
 		"messages": p.convertMessages(request.Messages),
 	}
 
-	// Adiciona parâmetros opcionais
 	if request.MaxTokens > 0 {
 		openAIRequest["max_tokens"] = request.MaxTokens
 	}
@@ -68,10 +87,15 @@ func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 	// Serializa a requisição
 	jsonData, err := json.Marshal(openAIRequest)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao serializar requisição: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*OpenAIProvider.Chat"), zap.Error(
+
+			// Cria a requisição HTTP
+			err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao serializar requisição: %w", err)
+		return
 	}
 
-	// Cria a requisição HTTP
 	baseURL := p.config.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
@@ -79,10 +103,15 @@ func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 
 	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*OpenAIProvider.Chat"), zap.Error(
+
+			// Adiciona headers
+			err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		return
 	}
 
-	// Adiciona headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.config.APIKey)
 
@@ -112,71 +141,147 @@ func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 	}
 
 	if lastErr != nil {
-		return nil, fmt.Errorf("erro na requisição HTTP após %d tentativas: %w", maxRetries+1, lastErr)
+		zap.L().Error("function.error", zap.String("func", "*OpenAIProvider.Chat"), zap.Error(lastErr), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro na requisição HTTP após %d tentativas: %w", maxRetries+1, lastErr)
+		return
 	}
 	defer response.Body.Close()
 
 	// Lê a resposta
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler resposta: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*OpenAIProvider.Chat"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao ler resposta: %w", err)
+		return
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API retornou erro %d: %s", response.StatusCode, string(body))
+		result0 = nil
+		result1 = fmt.Errorf("API retornou erro %d: %s", response.StatusCode, string(body))
+		return
 	}
 
 	// Parseia a resposta
 	var openAIResponse map[string]interface{}
 	if err := json.Unmarshal(body, &openAIResponse); err != nil {
-		return nil, fmt.Errorf("erro ao parsear resposta: %w", err)
-	}
+		zap.L().Error("function.error", zap.String("func", "*OpenAIProvider.Chat"),
 
-	// Converte para o modelo padrão
-	return p.convertResponse(openAIResponse)
+			// Converte para o modelo padrão
+			zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao parsear resposta: %w", err)
+		return
+	}
+	result0, result1 = p.convertResponse(openAIResponse)
+	return
 }
 
 // GetModel retorna o modelo atual
-func (p *OpenAIProvider) GetModel() string {
-	return p.config.Model
+func (p *OpenAIProvider) GetModel() (result0 string) {
+	__logParams := map[string]any{"p":
+
+	// GetProviderName retorna o nome do provedor
+	p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.GetModel"), zap.Any("result", result0), zap.Duration(
+
+			// ValidateConfig valida a configuração
+			"duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.GetModel"), zap.Any("params", __logParams))
+	result0 = p.config.Model
+	return
 }
 
-// GetProviderName retorna o nome do provedor
-func (p *OpenAIProvider) GetProviderName() string {
-	return string(model.ProviderOpenAI)
+func (p *OpenAIProvider) GetProviderName() (result0 string) {
+	__logParams := map[string]any{"p": p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.GetProviderName"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.GetProviderName"), zap.Any("params", __logParams))
+	result0 = string(model.ProviderOpenAI)
+	return
 }
 
-// ValidateConfig valida a configuração
-func (p *OpenAIProvider) ValidateConfig() error {
+func (p *OpenAIProvider) ValidateConfig() (result0 error) {
+	__logParams := map[string]any{"p": p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.ValidateConfig"), zap.Any("result", result0), zap.Duration("duration", time.Since(
+
+			// EstimateTokens estima o número de tokens
+			__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.ValidateConfig"), zap.
+
+		// Estimativa aproximada: ~4 caracteres por token em inglês
+		// Para português, pode ser ligeiramente diferente
+		Any("params", __logParams))
 	if p.config.APIKey == "" {
-		return fmt.Errorf("API key é obrigatória para OpenAI")
+		result0 = fmt.Errorf("API key é obrigatória para OpenAI")
+		return
 	}
 	if p.config.Model == "" {
-		return fmt.Errorf("modelo é obrigatório para OpenAI")
+		result0 = fmt.Errorf("modelo é obrigatório para OpenAI")
+		return
 	}
-	return nil
+	result0 = nil
+	return
 }
 
-// EstimateTokens estima o número de tokens
-func (p *OpenAIProvider) EstimateTokens(text string) int {
-	// Estimativa aproximada: ~4 caracteres por token em inglês
-	// Para português, pode ser ligeiramente diferente
-	return len(strings.Fields(text)) + len(text)/4
+func (p *OpenAIProvider) EstimateTokens(text string) (result0 int) {
+	__logParams := map[string]any{"p": p, "text": text}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.EstimateTokens"), zap.Any("result",
+
+			// getModel retorna o modelo a ser usado
+			result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.EstimateTokens"), zap.Any("params", __logParams))
+	result0 = len(strings.Fields(text)) + len(text)/4
+	return
 }
 
-// getModel retorna o modelo a ser usado
-func (p *OpenAIProvider) getModel(requestModel string) string {
+func (p *OpenAIProvider) getModel(requestModel string) (result0 string) {
+	__logParams := map[string]any{"p": p, "requestModel": requestModel}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func",
+
+			// modelo padrão
+			"*OpenAIProvider.getModel"),
+
+			// convertMessages converte mensagens para o formato da OpenAI
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.getModel"), zap.Any("params", __logParams))
 	if requestModel != "" {
-		return requestModel
+		result0 = requestModel
+		return
 	}
 	if p.config.Model != "" {
-		return p.config.Model
+		result0 = p.config.Model
+		return
 	}
-	return "gpt-3.5-turbo" // modelo padrão
+	result0 = "gpt-3.5-turbo"
+	return
 }
 
-// convertMessages converte mensagens para o formato da OpenAI
-func (p *OpenAIProvider) convertMessages(messages []model.Message) []map[string]string {
+func (p *OpenAIProvider) convertMessages(messages []model.Message) (result0 []map[string]string) {
+	__logParams := map[string]any{"p": p, "messages": messages}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.convertMessages"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// convertResponse converte a resposta da OpenAI para o modelo padrão
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.convertMessages"), zap.Any("params", __logParams))
 	converted := make([]map[string]string, len(messages))
 	for i, msg := range messages {
 		converted[i] = map[string]string{
@@ -184,11 +289,20 @@ func (p *OpenAIProvider) convertMessages(messages []model.Message) []map[string]
 			"content": msg.Content,
 		}
 	}
-	return converted
+	result0 = converted
+	return
 }
 
-// convertResponse converte a resposta da OpenAI para o modelo padrão
-func (p *OpenAIProvider) convertResponse(openAIResponse map[string]interface{}) (*model.LLMResponse, error) {
+func (p *OpenAIProvider) convertResponse(openAIResponse map[string]interface{}) (result0 *model.LLMResponse, result1 error) {
+	__logParams := map[string]any{"p": p, "openAIResponse": openAIResponse}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*OpenAIProvider.convertResponse"), zap.Any("result", map[string]any{"result0": result0, "result1":
+
+		// Converte choices
+		result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*OpenAIProvider.convertResponse"), zap.Any("params", __logParams))
 	response := &model.LLMResponse{
 		ID:      getString(openAIResponse, "id"),
 		Object:  getString(openAIResponse, "object"),
@@ -196,7 +310,6 @@ func (p *OpenAIProvider) convertResponse(openAIResponse map[string]interface{}) 
 		Model:   getString(openAIResponse, "model"),
 	}
 
-	// Converte choices
 	if choicesData, ok := openAIResponse["choices"].([]interface{}); ok {
 		response.Choices = make([]model.Choice, len(choicesData))
 		for i, choiceData := range choicesData {
@@ -225,28 +338,53 @@ func (p *OpenAIProvider) convertResponse(openAIResponse map[string]interface{}) 
 			TotalTokens:      getInt(usageData, "total_tokens"),
 		}
 	}
-
-	return response, nil
+	result0 = response
+	result1 = nil
+	return
 }
 
 // Funções auxiliares para conversão de tipos
-func getString(m map[string]interface{}, key string) string {
+func getString(m map[string]interface{}, key string) (result0 string) {
+	__logParams := map[string]any{"m": m, "key": key}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "getString"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "getString"), zap.Any("params", __logParams))
 	if val, ok := m[key].(string); ok {
-		return val
+		result0 = val
+		return
 	}
-	return ""
+	result0 = ""
+	return
 }
 
-func getInt(m map[string]interface{}, key string) int {
+func getInt(m map[string]interface{}, key string) (result0 int) {
+	__logParams := map[string]any{"m": m, "key": key}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "getInt"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "getInt"), zap.Any("params", __logParams))
 	if val, ok := m[key].(float64); ok {
-		return int(val)
+		result0 = int(val)
+		return
 	}
-	return 0
+	result0 = 0
+	return
 }
 
-func getInt64(m map[string]interface{}, key string) int64 {
+func getInt64(m map[string]interface{}, key string) (result0 int64) {
+	__logParams := map[string]any{"m": m, "key": key}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "getInt64"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "getInt64"), zap.Any("params", __logParams))
 	if val, ok := m[key].(float64); ok {
-		return int64(val)
+		result0 = int64(val)
+		return
 	}
-	return 0
+	result0 = 0
+	return
 }

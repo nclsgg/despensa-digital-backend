@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -43,6 +44,12 @@ type ShoppingListItem struct {
 }
 
 func (s *ShoppingList) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"s": s, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingList.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingList.BeforeCreate"), zap.Any("params", __logParams))
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
 	}
@@ -50,6 +57,12 @@ func (s *ShoppingList) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (s *ShoppingListItem) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"s": s, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListItem.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListItem.BeforeCreate"), zap.Any("params", __logParams))
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
 	}

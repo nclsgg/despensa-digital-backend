@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/profile/domain"
@@ -20,34 +21,78 @@ type mockProfileRepository struct {
 	mock.Mock
 }
 
-func (m *mockProfileRepository) Create(ctx context.Context, profile *model.Profile) error {
+func (m *mockProfileRepository) Create(ctx context.Context, profile *model.Profile) (result0 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "profile": profile}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockProfileRepository.Create"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockProfileRepository.Create"), zap.Any("params", __logParams))
 	args := m.Called(ctx, profile)
-	return args.Error(0)
+	result0 = args.Error(0)
+	return
 }
 
-func (m *mockProfileRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*model.Profile, error) {
+func (m *mockProfileRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (result0 *model.Profile, result1 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockProfileRepository.GetByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockProfileRepository.GetByUserID"), zap.Any("params", __logParams))
 	args := m.Called(ctx, userID)
 	if profile, ok := args.Get(0).(*model.Profile); ok {
-		return profile, args.Error(1)
+		result0 = profile
+		result1 = args.Error(1)
+		return
 	}
-	return nil, args.Error(1)
+	result0 = nil
+	result1 = args.Error(1)
+	return
 }
 
-func (m *mockProfileRepository) Update(ctx context.Context, profile *model.Profile) error {
+func (m *mockProfileRepository) Update(ctx context.Context, profile *model.Profile) (result0 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "profile": profile}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockProfileRepository.Update"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockProfileRepository.Update"), zap.Any("params", __logParams))
 	args := m.Called(ctx, profile)
-	return args.Error(0)
+	result0 = args.Error(0)
+	return
 }
 
-func (m *mockProfileRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockProfileRepository) Delete(ctx context.Context, id uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockProfileRepository.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockProfileRepository.Delete"), zap.Any("params", __logParams))
 	args := m.Called(ctx, id)
-	return args.Error(0)
+	result0 = args.Error(0)
+	return
 }
 
-func newProfileService(repo *mockProfileRepository) domain.ProfileService {
-	return service.NewProfileService(repo)
+func newProfileService(repo *mockProfileRepository) (result0 domain.ProfileService) {
+	__logParams := map[string]any{"repo": repo}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "newProfileService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "newProfileService"), zap.Any("params", __logParams))
+	result0 = service.NewProfileService(repo)
+	return
 }
 
 func TestCreateProfile_ProfileAlreadyExists(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestCreateProfile_ProfileAlreadyExists"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestCreateProfile_ProfileAlreadyExists"), zap.Any("params", __logParams))
 	repo := new(mockProfileRepository)
 	svc := newProfileService(repo)
 	userID := uuid.New()
@@ -62,6 +107,12 @@ func TestCreateProfile_ProfileAlreadyExists(t *testing.T) {
 }
 
 func TestCreateProfile_Success(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestCreateProfile_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestCreateProfile_Success"), zap.Any("params", __logParams))
 	repo := new(mockProfileRepository)
 	svc := newProfileService(repo)
 	userID := uuid.New()
@@ -87,6 +138,12 @@ func TestCreateProfile_Success(t *testing.T) {
 }
 
 func TestGetProfile_NotFound(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGetProfile_NotFound"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGetProfile_NotFound"), zap.Any("params", __logParams))
 	repo := new(mockProfileRepository)
 	svc := newProfileService(repo)
 	userID := uuid.New()
@@ -101,6 +158,12 @@ func TestGetProfile_NotFound(t *testing.T) {
 }
 
 func TestUpdateProfile_NotFound(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestUpdateProfile_NotFound"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestUpdateProfile_NotFound"), zap.Any("params", __logParams))
 	repo := new(mockProfileRepository)
 	svc := newProfileService(repo)
 	userID := uuid.New()
@@ -115,6 +178,12 @@ func TestUpdateProfile_NotFound(t *testing.T) {
 }
 
 func TestDeleteProfile_NotFound(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestDeleteProfile_NotFound"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestDeleteProfile_NotFound"), zap.Any("params", __logParams))
 	repo := new(mockProfileRepository)
 	svc := newProfileService(repo)
 	userID := uuid.New()

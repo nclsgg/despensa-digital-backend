@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	"go.uber.org/zap"
 )
 
 // PromptBuilderImpl implementa a interface PromptBuilder
@@ -14,24 +16,60 @@ type PromptBuilderImpl struct {
 }
 
 // NewPromptBuilder cria uma nova instância do construtor de prompts
-func NewPromptBuilder() *PromptBuilderImpl {
-	return &PromptBuilderImpl{
+func NewPromptBuilder() (result0 *PromptBuilderImpl) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String(
+
+			// BuildSystemPrompt constrói o prompt do sistema
+			"func", "NewPromptBuilder"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewPromptBuilder"), zap.Any("params", __logParams))
+	result0 = &PromptBuilderImpl{
 		variablePattern: regexp.MustCompile(`\{\{(\w+)\}\}`),
 	}
+	return
 }
 
-// BuildSystemPrompt constrói o prompt do sistema
-func (pb *PromptBuilderImpl) BuildSystemPrompt(template string, variables map[string]string) (string, error) {
-	return pb.replaceVariables(template, variables)
+func (pb *PromptBuilderImpl) BuildSystemPrompt(template string, variables map[string]string) (result0 string, result1 error) {
+	__logParams := map[string]any{"pb": pb, "template": template, "variables":
+
+	// BuildUserPrompt constrói o prompt do usuário
+	variables}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.BuildSystemPrompt"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration(
+
+			// BuildMessages constrói uma lista de mensagens
+			"duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.BuildSystemPrompt"), zap.Any("params", __logParams))
+	result0, result1 = pb.replaceVariables(template, variables)
+	return
 }
 
-// BuildUserPrompt constrói o prompt do usuário
-func (pb *PromptBuilderImpl) BuildUserPrompt(template string, variables map[string]string) (string, error) {
-	return pb.replaceVariables(template, variables)
+func (pb *PromptBuilderImpl) BuildUserPrompt(template string, variables map[string]string) (result0 string, result1 error) {
+	__logParams := map[string]any{"pb": pb, "template": template, "variables": variables}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.BuildUserPrompt"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.BuildUserPrompt"), zap.Any("params", __logParams))
+	result0, result1 = pb.replaceVariables(template, variables)
+	return
 }
 
-// BuildMessages constrói uma lista de mensagens
-func (pb *PromptBuilderImpl) BuildMessages(systemPrompt, userPrompt string) []model.Message {
+func (pb *PromptBuilderImpl) BuildMessages(systemPrompt, userPrompt string) (result0 []model.Message) {
+	__logParams := map[string]any{"pb": pb, "systemPrompt": systemPrompt, "userPrompt": userPrompt}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.BuildMessages"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.BuildMessages"),
+
+		// AddContext adiciona contexto ao prompt
+		zap.Any("params", __logParams))
 	messages := []model.Message{}
 
 	if systemPrompt != "" {
@@ -47,14 +85,20 @@ func (pb *PromptBuilderImpl) BuildMessages(systemPrompt, userPrompt string) []mo
 			Content: userPrompt,
 		})
 	}
-
-	return messages
+	result0 = messages
+	return
 }
 
-// AddContext adiciona contexto ao prompt
-func (pb *PromptBuilderImpl) AddContext(prompt string, context map[string]string) string {
+func (pb *PromptBuilderImpl) AddContext(prompt string, context map[string]string) (result0 string) {
+	__logParams := map[string]any{"pb": pb, "prompt": prompt, "context": context}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.AddContext"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.AddContext"), zap.Any("params", __logParams))
 	if len(context) == 0 {
-		return prompt
+		result0 = prompt
+		return
 	}
 
 	var contextBuilder strings.Builder
@@ -68,13 +112,24 @@ func (pb *PromptBuilderImpl) AddContext(prompt string, context map[string]string
 
 	contextBuilder.WriteString("\n")
 	contextBuilder.WriteString(prompt)
-
-	return contextBuilder.String()
+	result0 = contextBuilder.String()
+	return
 }
 
 // ValidateTemplate valida um template de prompt
-func (pb *PromptBuilderImpl) ValidateTemplate(template string, requiredVariables []string) error {
-	// Encontra todas as variáveis no template
+func (pb *PromptBuilderImpl) ValidateTemplate(template string, requiredVariables []string) (result0 error) {
+	__logParams :=
+		// Encontra todas as variáveis no template
+		map[string]any{"pb": pb, "template": template, "requiredVariables": requiredVariables}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.ValidateTemplate"), zap.Any("result", result0), zap.Duration("duration", time.Since(
+
+			// Verifica se todas as variáveis obrigatórias estão presentes
+			__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.ValidateTemplate"), zap.Any("params", __logParams))
+
 	matches := pb.variablePattern.FindAllStringSubmatch(template, -1)
 	templateVariables := make(map[string]bool)
 
@@ -84,27 +139,40 @@ func (pb *PromptBuilderImpl) ValidateTemplate(template string, requiredVariables
 		}
 	}
 
-	// Verifica se todas as variáveis obrigatórias estão presentes
 	for _, required := range requiredVariables {
 		if !templateVariables[required] {
-			return fmt.Errorf("variável obrigatória '%s' não encontrada no template", required)
+			result0 = fmt.Errorf("variável obrigatória '%s' não encontrada no template", required)
+			return
 		}
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
 // replaceVariables substitui variáveis no template
-func (pb *PromptBuilderImpl) replaceVariables(template string, variables map[string]string) (string, error) {
+func (pb *PromptBuilderImpl) replaceVariables(template string, variables map[string]string) (result0 string, result1 error) {
+	__logParams := map[string]any{"pb": pb, "template": template, "variables":
+
+	// Primeiro, remove linhas condicionais que não têm valores
+	variables}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.replaceVariables"),
+
+			// Substitui todas as variáveis encontradas
+			zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}(
+
+	// Extrai o nome da variável
+	)
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.replaceVariables"), zap.Any("params", __logParams))
 	result := template
 	missingVariables := []string{}
 
-	// Primeiro, remove linhas condicionais que não têm valores
 	result = pb.removeEmptyConditionals(result, variables)
 
-	// Substitui todas as variáveis encontradas
 	result = pb.variablePattern.ReplaceAllStringFunc(result, func(match string) string {
-		// Extrai o nome da variável
+
 		varName := strings.Trim(strings.Trim(match, "{"), "}")
 
 		if value, exists := variables[varName]; exists && value != "" {
@@ -128,21 +196,36 @@ func (pb *PromptBuilderImpl) replaceVariables(template string, variables map[str
 	})
 
 	if len(missingVariables) > 0 {
-		return "", fmt.Errorf("variáveis obrigatórias não fornecidas: %v", missingVariables)
+		result0 = ""
+		result1 = fmt.Errorf("variáveis obrigatórias não fornecidas: %v", missingVariables)
+		return
 	}
-
-	return result, nil
+	result0 = result
+	result1 = nil
+	return
 }
 
 // removeEmptyConditionals remove linhas com condicionais que não têm valores
-func (pb *PromptBuilderImpl) removeEmptyConditionals(template string, variables map[string]string) string {
+func (pb *PromptBuilderImpl) removeEmptyConditionals(template string, variables map[string]string) (result0 string) {
+	__logParams := map[string]any{"pb": pb, "template": template, "variables": variables}
+	__logStart := time.Now()
+	defer
+
+	// Verifica se a linha contém uma condicional opcional
+	func() {
+		zap.L().Info("function.exit", zap.String("func", "*PromptBuilderImpl.removeEmptyConditionals"),
+
+			// Extrai o nome da variável condicional (ex: {{#cuisine}} -> cuisine)
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PromptBuilderImpl.removeEmptyConditionals"), zap.Any("params", __logParams))
 	lines := strings.Split(template, "\n")
 	result := []string{}
 
 	for _, line := range lines {
-		// Verifica se a linha contém uma condicional opcional
+
 		if strings.Contains(line, "{{#") {
-			// Extrai o nome da variável condicional (ex: {{#cuisine}} -> cuisine)
+
 			start := strings.Index(line, "{{#") + 3
 			end := strings.Index(line[start:], "}}") + start
 			if end > start {
@@ -158,8 +241,8 @@ func (pb *PromptBuilderImpl) removeEmptyConditionals(template string, variables 
 		}
 		result = append(result, line)
 	}
-
-	return strings.Join(result, "\n")
+	result0 = strings.Join(result, "\n")
+	return
 }
 
 // RecipePromptTemplates contém templates pré-definidos para receitas
@@ -169,8 +252,14 @@ type RecipePromptTemplates struct {
 }
 
 // GetRecipePromptTemplates retorna os templates para geração de receitas
-func GetRecipePromptTemplates() RecipePromptTemplates {
-	return RecipePromptTemplates{
+func GetRecipePromptTemplates() (result0 RecipePromptTemplates) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "GetRecipePromptTemplates"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "GetRecipePromptTemplates"), zap.Any("params", __logParams))
+	result0 = RecipePromptTemplates{
 		SystemPrompt: `Você é um chef experiente e especialista em culinária brasileira e internacional. Sua missão é criar receitas deliciosas, práticas e personalizadas com base nos ingredientes disponíveis na despensa do usuário.
 
 DIRETRIZES IMPORTANTES:
@@ -247,11 +336,18 @@ PREFERÊNCIAS:
 
 Por favor, crie uma receita que maximize o uso dos ingredientes disponíveis na despensa e atenda às preferências especificadas. Se precisar de ingredientes adicionais, liste apenas os essenciais e comuns.`,
 	}
+	return
 }
 
 // SearchPromptTemplates contém templates para busca de receitas
-func GetSearchPromptTemplates() RecipePromptTemplates {
-	return RecipePromptTemplates{
+func GetSearchPromptTemplates() (result0 RecipePromptTemplates) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "GetSearchPromptTemplates"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "GetSearchPromptTemplates"), zap.Any("params", __logParams))
+	result0 = RecipePromptTemplates{
 		SystemPrompt: `Você é um especialista em culinária que ajuda a encontrar receitas baseadas em ingredientes específicos. Sua função é analisar receitas existentes e determinar quais são mais adequadas para os ingredientes disponíveis.
 
 DIRETRIZES:
@@ -293,4 +389,5 @@ PREFERÊNCIAS:
 
 Ranqueie as receitas por compatibilidade com os ingredientes disponíveis e preferências especificadas.`,
 	}
+	return
 }

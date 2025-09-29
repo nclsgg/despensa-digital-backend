@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+	"go.uber.org/zap"
 )
 
 // RecipeHandler handles recipe-related HTTP requests
@@ -19,36 +21,90 @@ type RecipeHandler struct {
 	llmService    *service.LLMServiceImpl
 }
 
+func captureContextFields(c *gin.Context) map[string]any {
+	if c == nil {
+		return nil
+	}
+
+	fields := map[string]any{
+		"client_ip": c.ClientIP(),
+	}
+
+	if req := c.Request; req != nil {
+		fields["method"] = req.Method
+		fields["host"] = req.Host
+		fields["url_path"] = req.URL.Path
+		if raw := req.URL.RawQuery; raw != "" {
+			fields["query"] = raw
+		}
+	}
+
+	if route := c.FullPath(); route != "" {
+		fields["route"] = route
+	}
+
+	if requestID := c.GetString("request_id"); requestID != "" {
+		fields["request_id"] = requestID
+	} else if requestID := c.GetString("requestID"); requestID != "" {
+		fields["request_id"] = requestID
+	}
+
+	return fields
+}
+
 // NewRecipeHandler creates a new recipe handler
 func NewRecipeHandler(
 	recipeService recipeDomain.RecipeService,
 	llmService *service.LLMServiceImpl,
-) *RecipeHandler {
-	return &RecipeHandler{
+) (result0 *RecipeHandler) {
+	__logParams := map[string]any{"recipeService": recipeService, "llmService": llmService}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewRecipeHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewRecipeHandler"), zap.Any("params", __logParams))
+	result0 = &RecipeHandler{
 		recipeService: recipeService,
 		llmService:    llmService,
 	}
+	return
 }
 
-func extractDetail(err error, base error, fallback string) string {
+func extractDetail(err error, base error, fallback string) (result0 string) {
+	__logParams := map[string]any{"err": err, "base": base, "fallback": fallback}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "extractDetail"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "extractDetail"), zap.Any("params", __logParams))
 	if err == nil {
-		return fallback
+		result0 = fallback
+		return
 	}
 	if base == nil || !errors.Is(err, base) {
-		return fallback
+		result0 = fallback
+		return
 	}
 	message := err.Error()
 	prefix := base.Error() + ": "
 	if strings.HasPrefix(message, prefix) {
 		detail := strings.TrimPrefix(message, prefix)
 		if detail != "" {
-			return detail
+			result0 = detail
+			return
 		}
 	}
-	return fallback
+	result0 = fallback
+	return
 }
 
 func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c), "err": err}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.handleServiceError"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.handleServiceError"), zap.Any("params", __logParams))
 	switch {
 	case errors.Is(err, recipeDomain.ErrInvalidRequest):
 		detail := extractDetail(err, recipeDomain.ErrInvalidRequest, "Invalid recipe request")
@@ -82,15 +138,20 @@ func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
 // @Router /api/v1/recipes/generate [post]
 // @Security BearerAuth
 func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Any("params", __logParams))
 	var request dto.RecipeRequestDTO
 
-	// Parse request body
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
-	// Get user ID from context (set by auth middleware)
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
 		response.Unauthorized(c, "userID não encontrado no contexto")
@@ -102,6 +163,7 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -114,6 +176,7 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 
 	recipe, err := h.recipeService.GenerateRecipe(c.Request.Context(), &request, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
 		h.handleServiceError(c, err)
 		return
 	}
@@ -121,37 +184,33 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 	response.OK(c, recipe)
 }
 
-// GetAvailableIngredients godoc
-// @Summary Get available ingredients from pantry with quantities
-// @Description Get list of ingredients available in a specific pantry with quantity and unit information
-// @Tags recipes
-// @Produce json
-// @Param pantry_id path string true "Pantry ID" format(uuid)
-// @Success 200 {object} response.Response{data=[]service.IngredientInfo}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /api/v1/recipes/pantries/{pantry_id}/ingredients [get]
-// @Security BearerAuth
 func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
-	// Get pantry ID from URL
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Any("params", __logParams))
+
 	pantryID := c.Param("id")
 	if pantryID == "" {
-		pantryID = c.Param("pantry_id") // fallback for recipe-specific endpoints
+		pantryID = c.Param("pantry_id")
 	}
 	if pantryID == "" {
 		response.BadRequest(c, "pantry_id não fornecido")
 		return
 	}
 
-	// Validate pantry ID format
 	pantryUUID, err := uuid.Parse(pantryID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"),
+
+			// Get user ID from context
+			zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "ID da despensa inválido: "+err.Error())
 		return
 	}
 
-	// Get user ID from context
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
 		response.Unauthorized(c, "userID não encontrado no contexto")
@@ -163,6 +222,7 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Error(err), zap.Any("params", __logParams))
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -175,6 +235,22 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 
 	ingredients, err := h.recipeService.GetAvailableIngredients(c.Request.Context(), pantryUUID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"),
+
+			// ChatWithLLM godoc
+			// @Summary Chat with LLM for recipe suggestions
+			// @Description Send a direct message to LLM for recipe advice and cooking tips
+			// @Tags recipes,llm
+			// @Accept json
+			// @Produce json
+			// @Param request body dto.LLMRequestDTO true "LLM chat request"
+			// @Success 200 {object} response.Response{data=dto.LLMResponseDTO}
+			// @Failure 400 {object} response.Response
+			// @Failure 401 {object} response.Response
+			// @Failure 500 {object} response.Response
+			// @Router /api/v1/recipes/chat [post]
+			// @Security BearerAuth
+			zap.Error(err), zap.Any("params", __logParams))
 		h.handleServiceError(c, err)
 		return
 	}
@@ -182,30 +258,24 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 	response.OK(c, ingredients)
 }
 
-// ChatWithLLM godoc
-// @Summary Chat with LLM for recipe suggestions
-// @Description Send a direct message to LLM for recipe advice and cooking tips
-// @Tags recipes,llm
-// @Accept json
-// @Produce json
-// @Param request body dto.LLMRequestDTO true "LLM chat request"
-// @Success 200 {object} response.Response{data=dto.LLMResponseDTO}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /api/v1/recipes/chat [post]
-// @Security BearerAuth
 func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Any("params", __logParams))
 	var request dto.LLMRequestDTO
 
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
-	// Process LLM request
 	response_data, err := h.llmService.ProcessRequest(c.Request.Context(), &request)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro na requisição ao LLM: "+err.Error())
 		return
 	}
@@ -223,11 +293,18 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 // @Router /api/v1/llm/providers [get]
 // @Security BearerAuth
 func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Any("params", __logParams))
 	providers := h.llmService.GetAvailableProviders()
 	currentProvider := h.llmService.GetCurrentProvider()
 
 	providerInfo, err := h.llmService.GetProviderInfo()
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Error(err), zap.Any("params", __logParams))
 		providerInfo = map[string]interface{}{
 			"error": err.Error(),
 		}
@@ -255,9 +332,16 @@ func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
 // @Router /api/v1/llm/providers [put]
 // @Security BearerAuth
 func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Any("params", __logParams))
 	var request map[string]string
 
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
@@ -269,6 +353,7 @@ func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
 	}
 
 	if err := h.llmService.SetProvider(provider); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Erro ao definir provedor: "+err.Error())
 		return
 	}
@@ -291,9 +376,16 @@ func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
 // @Router /api/v1/llm/estimate-tokens [post]
 // @Security BearerAuth
 func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Any("params", __logParams))
 	var request map[string]string
 
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
@@ -306,6 +398,7 @@ func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
 
 	tokens, err := h.llmService.EstimateTokens(text)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro ao estimar tokens: "+err.Error())
 		return
 	}

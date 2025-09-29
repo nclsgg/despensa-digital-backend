@@ -10,32 +10,58 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-func parseTimePointer(dateStr string) *time.Time {
+func parseTimePointer(dateStr string) (result0 *time.Time) {
+	__logParams := map[string]any{"dateStr": dateStr}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "parseTimePointer"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "parseTimePointer"), zap.Any("params", __logParams))
 	if dateStr == "" {
-		return nil
+		result0 = nil
+		return
 	}
 	layout := "2006-01-02"
 	parsedTime, err := time.Parse(layout, dateStr)
 	if err != nil {
-		return nil
+		zap.L().Error("function.error", zap.String("func", "parseTimePointer"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		return
 	}
-	return &parsedTime
+	result0 = &parsedTime
+	return
 }
 
-func formatTimePointer(t *time.Time) *string {
+func formatTimePointer(t *time.Time) (result0 *string) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "formatTimePointer"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "formatTimePointer"), zap.Any("params", __logParams))
 	if t == nil {
-		return nil
+		result0 = nil
+		return
 	}
 	formatted := t.UTC().Format(time.RFC3339)
-	return &formatted
+	result0 = &formatted
+	return
 }
 
-func toItemResponse(item *model.Item) *dto.ItemResponse {
+func toItemResponse(item *model.Item) (result0 *dto.ItemResponse) {
+	__logParams := map[string]any{"item": item}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "toItemResponse"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "toItemResponse"), zap.Any("params", __logParams))
 	if item == nil {
-		return nil
+		result0 = nil
+		return
 	}
 
 	item.TotalPrice = item.Quantity * item.PricePerUnit
@@ -45,8 +71,7 @@ func toItemResponse(item *model.Item) *dto.ItemResponse {
 		id := item.CategoryID.String()
 		categoryID = &id
 	}
-
-	return &dto.ItemResponse{
+	result0 = &dto.ItemResponse{
 		ID:           item.ID.String(),
 		PantryID:     item.PantryID.String(),
 		AddedBy:      item.AddedBy.String(),
@@ -60,14 +85,22 @@ func toItemResponse(item *model.Item) *dto.ItemResponse {
 		CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:    item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
+	return
 }
 
-func toItemResponseList(items []*model.Item) []*dto.ItemResponse {
+func toItemResponseList(items []*model.Item) (result0 []*dto.ItemResponse) {
+	__logParams := map[string]any{"items": items}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "toItemResponseList"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "toItemResponseList"), zap.Any("params", __logParams))
 	responses := make([]*dto.ItemResponse, 0, len(items))
 	for _, item := range items {
 		responses = append(responses, toItemResponse(item))
 	}
-	return responses
+	result0 = responses
+	return
 }
 
 type itemService struct {
@@ -75,22 +108,43 @@ type itemService struct {
 	pantryRepo pantryDomain.PantryRepository
 }
 
-func NewItemService(repo domain.ItemRepository, pantryRepo pantryDomain.PantryRepository) domain.ItemService {
-	return &itemService{repo, pantryRepo}
+func NewItemService(repo domain.ItemRepository, pantryRepo pantryDomain.PantryRepository) (result0 domain.ItemService) {
+	__logParams := map[string]any{"repo": repo, "pantryRepo": pantryRepo}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewItemService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewItemService"), zap.Any("params", __logParams))
+	result0 = &itemService{repo, pantryRepo}
+	return
 }
 
-func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error) {
+func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userID uuid.UUID) (result0 *dto.ItemResponse, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "input": input, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.Create"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.Create"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(input.PantryID)
 	if err != nil {
-		return nil, domain.ErrInvalidPantry
+		zap.L().Error("function.error", zap.String("func", "*itemService.Create"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = domain.ErrInvalidPantry
+		return
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Create"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !isMember {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	now := time.Now().UTC()
@@ -116,106 +170,187 @@ func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userI
 	}
 
 	if err := s.repo.Create(ctx, item); err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Create"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
-
-	return toItemResponse(item), nil
+	result0 = toItemResponse(item)
+	result1 = nil
+	return
 }
 
-func (s *itemService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemDTO, userID uuid.UUID) (*dto.ItemResponse, error) {
+func (s *itemService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemDTO, userID uuid.UUID) (result0 *dto.ItemResponse, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "input": input, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.Update"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.Update"), zap.Any("params", __logParams))
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Update"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Update"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !isMember {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	item.ApplyUpdate(input)
 	item.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(ctx, item); err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Update"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
-
-	return toItemResponse(item), nil
+	result0 = toItemResponse(item)
+	result1 = nil
+	return
 }
 
-func (s *itemService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*dto.ItemResponse, error) {
+func (s *itemService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (result0 *dto.ItemResponse, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.FindByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.FindByID"), zap.Any("params", __logParams))
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*itemService.FindByID"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrItemNotFound
+			result0 = nil
+			result1 = domain.ErrItemNotFound
+			return
 		}
-		return nil, err
+		result0 = nil
+		result1 = err
+		return
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.FindByID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !isMember {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
-
-	return toItemResponse(item), nil
+	result0 = toItemResponse(item)
+	result1 = nil
+	return
 }
 
-func (s *itemService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+func (s *itemService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.Delete"), zap.Any("params", __logParams))
 	item, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*itemService.Delete"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrItemNotFound
+			result0 = domain.ErrItemNotFound
+			return
 		}
-		return err
+		result0 = err
+		return
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, item.PantryID, userID)
 	if err != nil {
-		return err
+		zap.L().Error("function.error", zap.String("func", "*itemService.Delete"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
 	}
 	if !isMember {
-		return domain.ErrUnauthorized
+		result0 = domain.ErrUnauthorized
+		return
 	}
-
-	return s.repo.Delete(ctx, id)
+	result0 = s.repo.Delete(ctx, id)
+	return
 }
 
-func (s *itemService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*dto.ItemResponse, error) {
+func (s *itemService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) (result0 []*dto.ItemResponse, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.ListByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.ListByPantryID"), zap.Any("params", __logParams))
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.ListByPantryID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !isMember {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	items, err := s.repo.ListByPantryID(ctx, pantryID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.ListByPantryID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
-
-	return toItemResponseList(items), nil
+	result0 = toItemResponseList(items)
+	result1 = nil
+	return
 }
 
-func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) ([]*dto.ItemResponse, error) {
+func (s *itemService) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO, userID uuid.UUID) (result0 []*dto.ItemResponse, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "filters": filters, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*itemService.FilterByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*itemService.FilterByPantryID"), zap.Any("params", __logParams))
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.FilterByPantryID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !isMember {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	items, err := s.repo.FilterByPantryID(ctx, pantryID, filters)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*itemService.FilterByPantryID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
-
-	return toItemResponseList(items), nil
+	result0 = toItemResponseList(items)
+	result1 = nil
+	return
 }

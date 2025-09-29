@@ -11,6 +11,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+	"go.uber.org/zap"
 )
 
 type pantryHandler struct {
@@ -18,22 +19,38 @@ type pantryHandler struct {
 	itemService itemDomain.ItemService
 }
 
-func NewPantryHandler(service domain.PantryService, itemService itemDomain.ItemService) domain.PantryHandler {
-	return &pantryHandler{service: service, itemService: itemService}
+func NewPantryHandler(service domain.PantryService, itemService itemDomain.ItemService) (result0 domain.PantryHandler) {
+	__logParams := map[string]any{"service": service, "itemService": itemService}
+	__logStart :=
+
+		// @Summary Create a new pantry
+		// @Tags Pantry
+		// @Accept json
+		// @Produce json
+		// @Param body body dto.CreatePantryRequest true "Pantry data"
+		// @Success 201 {object} dto.PantrySummaryResponse
+		// @Failure 400 {object} response.APIResponse
+		// @Failure 500 {object} response.APIResponse
+		// @Router /pantries [post]
+		time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewPantryHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewPantryHandler"), zap.Any("params", __logParams))
+	result0 = &pantryHandler{service: service, itemService: itemService}
+	return
 }
 
-// @Summary Create a new pantry
-// @Tags Pantry
-// @Accept json
-// @Produce json
-// @Param body body dto.CreatePantryRequest true "Pantry data"
-// @Success 201 {object} dto.PantrySummaryResponse
-// @Failure 400 {object} response.APIResponse
-// @Failure 500 {object} response.APIResponse
-// @Router /pantries [post]
 func (h *pantryHandler) CreatePantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.CreatePantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.CreatePantry"), zap.Any("params", __logParams))
 	var req dto.CreatePantryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.CreatePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Name is required")
 		return
 	}
@@ -43,6 +60,7 @@ func (h *pantryHandler) CreatePantry(c *gin.Context) {
 
 	pantry, err := h.service.CreatePantry(c.Request.Context(), req.Name, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.CreatePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to create pantry")
 		return
 	}
@@ -66,6 +84,12 @@ func (h *pantryHandler) CreatePantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries [get]
 func (h *pantryHandler) ListPantries(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.ListPantries"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.ListPantries"), zap.Any("params", __logParams))
 	rawID, _ := c.Get("userID")
 	userID, ok := rawID.(uuid.UUID)
 	if !ok {
@@ -75,6 +99,7 @@ func (h *pantryHandler) ListPantries(c *gin.Context) {
 
 	pantries, err := h.service.ListPantriesWithItemCount(c.Request.Context(), userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.ListPantries"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to list pantries")
 		return
 	}
@@ -104,8 +129,15 @@ func (h *pantryHandler) ListPantries(c *gin.Context) {
 // @Failure 404 {object} response.APIResponse
 // @Router /pantries/{id} [get]
 func (h *pantryHandler) GetPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.GetPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.GetPantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.GetPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
@@ -115,12 +147,14 @@ func (h *pantryHandler) GetPantry(c *gin.Context) {
 
 	pantryWithCount, err := h.service.GetPantryWithItemCount(c.Request.Context(), pantryID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.GetPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.Fail(c, 404, "NOT_FOUND", "Pantry not found or user has no access")
 		return
 	}
 
 	items, err := h.itemService.ListByPantryID(c.Request.Context(), pantryID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.GetPantry"), zap.Error(err), zap.Any("params", __logParams))
 		switch {
 		case errors.Is(err, itemDomain.ErrUnauthorized):
 			response.Fail(c, 403, "FORBIDDEN", "Access denied to this pantry")
@@ -174,14 +208,22 @@ func (h *pantryHandler) GetPantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries/{id} [put]
 func (h *pantryHandler) UpdatePantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.UpdatePantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.UpdatePantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.UpdatePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
 
 	var req dto.UpdatePantryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.UpdatePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Name is required")
 		return
 	}
@@ -191,6 +233,7 @@ func (h *pantryHandler) UpdatePantry(c *gin.Context) {
 
 	err = h.service.UpdatePantry(c.Request.Context(), pantryID, userID, req.Name)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.UpdatePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to update pantry")
 		return
 	}
@@ -207,8 +250,15 @@ func (h *pantryHandler) UpdatePantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries/{id} [delete]
 func (h *pantryHandler) DeletePantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.DeletePantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.DeletePantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.DeletePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
@@ -218,6 +268,7 @@ func (h *pantryHandler) DeletePantry(c *gin.Context) {
 
 	err = h.service.DeletePantry(c.Request.Context(), pantryID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.DeletePantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to delete pantry")
 		return
 	}
@@ -237,14 +288,22 @@ func (h *pantryHandler) DeletePantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries/{id}/users [post]
 func (h *pantryHandler) AddUserToPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.AddUserToPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.AddUserToPantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.AddUserToPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
 
 	var req dto.ModifyPantryUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.AddUserToPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "User ID is required")
 		return
 	}
@@ -254,6 +313,7 @@ func (h *pantryHandler) AddUserToPantry(c *gin.Context) {
 
 	err = h.service.AddUserToPantry(c.Request.Context(), pantryID, ownerID, req.Email)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.AddUserToPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to add user to pantry")
 		return
 	}
@@ -273,14 +333,22 @@ func (h *pantryHandler) AddUserToPantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries/{id}/users [delete]
 func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.RemoveUserFromPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.RemoveUserFromPantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
 
 	var req dto.ModifyPantryUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "User ID is required")
 		return
 	}
@@ -290,6 +358,7 @@ func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
 
 	err = h.service.RemoveUserFromPantry(c.Request.Context(), pantryID, ownerID, req.Email)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to remove user from pantry")
 		return
 	}
@@ -307,8 +376,15 @@ func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /pantries/{id}/users [get]
 func (h *pantryHandler) ListUsersInPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.ListUsersInPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.ListUsersInPantry"), zap.Any("params", __logParams))
 	pantryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.ListUsersInPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid pantry ID")
 		return
 	}
@@ -318,6 +394,7 @@ func (h *pantryHandler) ListUsersInPantry(c *gin.Context) {
 
 	users, err := h.service.ListUsersInPantry(c.Request.Context(), pantryID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.ListUsersInPantry"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Failed to list users in pantry")
 		return
 	}

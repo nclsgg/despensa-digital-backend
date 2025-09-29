@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,12 @@ type User struct {
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"u": u, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*User.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*User.BeforeCreate"), zap.Any("params", __logParams))
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}

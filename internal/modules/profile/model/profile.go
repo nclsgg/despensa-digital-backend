@@ -6,33 +6,52 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // StringArray is a custom type to handle string arrays in different databases
 type StringArray []string
 
-func (sa *StringArray) Scan(value interface{}) error {
+func (sa *StringArray) Scan(value interface{}) (result0 error) {
+	__logParams := map[string]any{"sa": sa, "value": value}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*StringArray.Scan"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*StringArray.Scan"), zap.Any("params", __logParams))
 	if value == nil {
 		*sa = nil
-		return nil
+		result0 = nil
+		return
 	}
 
 	switch v := value.(type) {
 	case string:
-		return json.Unmarshal([]byte(v), sa)
+		result0 = json.Unmarshal([]byte(v), sa)
+		return
 	case []byte:
-		return json.Unmarshal(v, sa)
+		result0 = json.Unmarshal(v, sa)
+		return
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
-func (sa StringArray) Value() (driver.Value, error) {
+func (sa StringArray) Value() (result0 driver.Value, result1 error) {
+	__logParams := map[string]any{"sa": sa}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "StringArray.Value"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "StringArray.Value"), zap.Any("params", __logParams))
 	if sa == nil {
-		return nil, nil
+		result0 = nil
+		result1 = nil
+		return
 	}
-	return json.Marshal(sa)
+	result0, result1 = json.Marshal(sa)
+	return
 }
 
 type Profile struct {
@@ -50,6 +69,12 @@ type Profile struct {
 }
 
 func (p *Profile) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"p": p, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*Profile.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*Profile.BeforeCreate"), zap.Any("params", __logParams))
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
 	}

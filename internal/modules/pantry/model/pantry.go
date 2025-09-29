@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -42,6 +43,12 @@ type PantryWithItemCount struct {
 }
 
 func (u *Pantry) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"u": u, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*Pantry.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*Pantry.BeforeCreate"), zap.Any("params", __logParams))
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}
@@ -49,6 +56,12 @@ func (u *Pantry) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (u *PantryUser) BeforeCreate(tx *gorm.DB) (err error) {
+	__logParams := map[string]any{"u": u, "tx": tx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*PantryUser.BeforeCreate"), zap.Any("result", err), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*PantryUser.BeforeCreate"), zap.Any("params", __logParams))
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}

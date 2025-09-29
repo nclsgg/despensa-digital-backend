@@ -13,6 +13,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -22,24 +23,52 @@ type authService struct {
 	redis *redis.Client
 }
 
-func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis.Client) domain.AuthService {
-	return &authService{repo, cfg, redis}
+func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis.Client) (result0 domain.AuthService) {
+	__logParams := map[string]any{"repo": repo, "cfg": cfg,
+
+		// HashPassword creates a hash of the password (simplified for OAuth users)
+		"redis": redis}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewAuthService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewAuthService"), zap.Any("params", __logParams))
+	result0 = &authService{repo, cfg, redis}
+	return
 }
 
-// HashPassword creates a hash of the password (simplified for OAuth users)
-func (s *authService) HashPassword(password string) (string, error) {
+func (s *authService) HashPassword(password string) (result0 string, result1 error) {
+	__logParams := map[string]any{"s": s, "password": password}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*authService.HashPassword"), zap.Any("result", map[string]any{
+
+			// GenerateAccessToken generates JWT token for OAuth authenticated users
+			"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*authService.HashPassword"), zap.Any("params", __logParams))
 	hasher := sha256.New()
 	hasher.Write([]byte(password + "salt"))
 	hashedPassword := hasher.Sum(nil)
 	encoded := base64.StdEncoding.EncodeToString(hashedPassword)
-	return encoded, nil
+	result0 = encoded
+	result1 = nil
+	return
 }
 
-// GenerateAccessToken generates JWT token for OAuth authenticated users
-func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
+func (s *authService) GenerateAccessToken(user *model.User) (result0 string, result1 error) {
+	__logParams := map[string]any{"s": s, "user": user}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*authService.GenerateAccessToken"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*authService.GenerateAccessToken"), zap.Any("params", __logParams))
 	jwtExpiration, err := time.ParseDuration(s.cfg.JWTExpiration)
 	if err != nil {
-		return "", err
+		zap.L().Error("function.error", zap.String("func", "*authService.GenerateAccessToken"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = ""
+		result1 = err
+		return
 	}
 
 	claims := model.MyClaims{
@@ -53,51 +82,92 @@ func (s *authService) GenerateAccessToken(user *model.User) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.cfg.JWTSecret))
+	result0, result1 = token.SignedString([]byte(s.cfg.JWTSecret))
+	if result1 != nil {
+		zap.L().Error("function.error", zap.String("func", "*authService.GenerateAccessToken"), zap.Error(result1), zap.Any("params", __logParams))
+		result0 = ""
+		return
+	}
+	return
 }
 
 // OAuth specific methods
-func (s *authService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
-	user, err := s.repo.GetUser(ctx, email)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrUserNotFound
-		}
-		return nil, err
-	}
+func (s *authService) GetUserByEmail(ctx context.Context, email string) (result0 *model.User, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "email": email}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*authService.GetUserByEmail"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}(
 
-	return user, nil
-}
-
-func (s *authService) CreateUserOAuth(ctx context.Context, user *model.User) error {
 	// For OAuth users, we don't need password hashing since they authenticate via OAuth
 	// But we'll set a placeholder password just in case
+	)
+	zap.L().Info("function.entry", zap.String("func", "*authService.GetUserByEmail"), zap.Any("params", __logParams))
+	user, err := s.repo.GetUser(ctx, email)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*authService.GetUserByEmail"), zap.Error(err), zap.Any("params", __logParams))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			result0 = nil
+			result1 = domain.ErrUserNotFound
+			return
+		}
+		result0 = nil
+		result1 = err
+		return
+	}
+	result0 = user
+	result1 = nil
+	return
+}
+
+func (s *authService) CreateUserOAuth(ctx context.Context, user *model.User) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "user": user}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*authService.CreateUserOAuth"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*authService.CreateUserOAuth"), zap.Any("params", __logParams))
+
 	if user.Password == "" {
 		hashedPassword, err := s.HashPassword("oauth-no-password")
 		if err != nil {
-			return err
+			zap.L().Error("function.error", zap.String("func", "*authService.CreateUserOAuth"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = err
+			return
 		}
 		user.Password = hashedPassword
 	}
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*authService.CreateUserOAuth"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return domain.ErrEmailAlreadyRegistered
+			result0 = domain.ErrEmailAlreadyRegistered
+			return
 		}
-		return err
+		result0 = err
+		return
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
 // CompleteProfile updates user profile with first/last name and marks profile as complete
-func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) error {
+func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "firstName": firstName, "lastName": lastName}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*authService.CompleteProfile"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*authService.CompleteProfile"), zap.Any("params", __logParams))
 	user, err := s.repo.GetUserById(ctx, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*authService.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrUserNotFound
+			result0 = domain.ErrUserNotFound
+			return
 		}
-		return err
+		result0 = err
+		return
 	}
 
 	user.FirstName = firstName
@@ -105,8 +175,10 @@ func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, fir
 	user.ProfileCompleted = true
 
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
-		return domain.ErrProfileUpdateFailed
+		zap.L().Error("function.error", zap.String("func", "*authService.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = domain.ErrProfileUpdateFailed
+		return
 	}
-
-	return nil
+	result0 = nil
+	return
 }

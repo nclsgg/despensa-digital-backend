@@ -18,6 +18,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/dto"
 	shoppingModel "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -71,17 +72,30 @@ func NewShoppingListService(
 	itemRepo itemDomain.ItemRepository,
 	profileRepo profileDomain.ProfileRepository,
 	llmService llmDomain.LLMService,
-) domain.ShoppingListService {
-	return &shoppingListService{
+) (result0 domain.ShoppingListService) {
+	__logParams := map[string]any{"shoppingListRepo": shoppingListRepo, "pantryRepo": pantryRepo, "itemRepo": itemRepo, "profileRepo": profileRepo, "llmService": llmService}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewShoppingListService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewShoppingListService"), zap.Any("params", __logParams))
+	result0 = &shoppingListService{
 		shoppingListRepo: shoppingListRepo,
 		pantryRepo:       pantryRepo,
 		itemRepo:         itemRepo,
 		profileRepo:      profileRepo,
 		llmService:       llmService,
 	}
+	return
 }
 
-func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uuid.UUID, input dto.CreateShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
+func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uuid.UUID, input dto.CreateShoppingListDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("params", __logParams))
 	shoppingList := &shoppingModel.ShoppingList{
 		UserID:      userID,
 		PantryID:    input.PantryID,
@@ -94,10 +108,15 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 	if input.PantryID != nil {
 		hasAccess, err := s.pantryRepo.IsUserInPantry(ctx, *input.PantryID, userID)
 		if err != nil {
-			return nil, err
+			zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = nil
+			result1 = err
+			return
 		}
 		if !hasAccess {
-			return nil, domain.ErrPantryAccessDenied
+			result0 = nil
+			result1 = domain.ErrPantryAccessDenied
+			return
 		}
 	}
 
@@ -126,40 +145,72 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 	}
 
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("create shopping list: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("create shopping list: %w", err)
+		return
 	}
 
 	created, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("reload shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("reload shopping list: %w", err)
+		return
 	}
-
-	return s.convertToResponseDTO(ctx, created), nil
+	result0 = s.convertToResponseDTO(ctx, created)
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) GetShoppingListByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*dto.ShoppingListResponseDTO, error) {
+func (s *shoppingListService) GetShoppingListByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (result0 *dto.ShoppingListResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Any("params", __logParams))
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("get shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("get shopping list: %w", err)
+		return
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
-
-	return s.convertToResponseDTO(ctx, shoppingList), nil
+	result0 = s.convertToResponseDTO(ctx, shoppingList)
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*dto.ShoppingListSummaryDTO, error) {
+func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) (result0 []*dto.ShoppingListSummaryDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "limit": limit, "offset": offset}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Any("params", __logParams))
 	shoppingLists, err := s.shoppingListRepo.GetByUserID(ctx, userID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("error getting shopping lists: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("error getting shopping lists: %w", err)
+		return
 	}
 
 	pantryNames := s.resolvePantryNames(ctx, shoppingLists)
@@ -200,21 +251,35 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 			UpdatedAt:      sl.UpdatedAt.Format(time.RFC3339),
 		})
 	}
-
-	return summaries, nil
+	result0 = summaries
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
+func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Any("params", __logParams))
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("get shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("get shopping list: %w", err)
+		return
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	if input.Name != nil {
@@ -231,51 +296,85 @@ func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uui
 	}
 
 	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("update shopping list: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("update shopping list: %w", err)
+		return
 	}
 
 	updated, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("reload shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("reload shopping list: %w", err)
+		return
 	}
-
-	return s.convertToResponseDTO(ctx, updated), nil
+	result0 = s.convertToResponseDTO(ctx, updated)
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
+func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Any("params", __logParams))
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrShoppingListNotFound
+			result0 = domain.ErrShoppingListNotFound
+			return
 		}
-		return fmt.Errorf("get shopping list: %w", err)
+		result0 = fmt.Errorf("get shopping list: %w", err)
+		return
 	}
 
 	if shoppingList.UserID != userID {
-		return domain.ErrUnauthorized
+		result0 = domain.ErrUnauthorized
+		return
 	}
 
 	if err := s.shoppingListRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("delete shopping list: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = fmt.Errorf("delete shopping list: %w", err)
+		return
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
-func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (*dto.ShoppingListItemResponseDTO, error) {
+func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (result0 *dto.ShoppingListItemResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "shoppingListID": shoppingListID, "itemID": itemID, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Any("params", __logParams))
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("get shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("get shopping list: %w", err)
+		return
 	}
 
 	if shoppingList.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
 	}
 
 	var targetItem *shoppingModel.ShoppingListItem
@@ -287,7 +386,9 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	}
 
 	if targetItem == nil {
-		return nil, domain.ErrItemNotFound
+		result0 = nil
+		result1 = domain.ErrItemNotFound
+		return
 	}
 
 	if input.Name != nil {
@@ -319,32 +420,48 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	}
 
 	if err := s.shoppingListRepo.UpdateItem(ctx, targetItem); err != nil {
-		return nil, fmt.Errorf("update shopping list item: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("update shopping list item: %w", err)
+		return
 	}
 
 	reloadedItems, err := s.shoppingListRepo.GetItemsByShoppingListID(ctx, shoppingListID)
 	if err == nil {
 		for _, item := range reloadedItems {
 			if item.ID == itemID {
-				return s.convertItemToResponseDTO(item), nil
+				result0 = s.convertItemToResponseDTO(item)
+				result1 = nil
+				return
 			}
 		}
 	}
-
-	return s.convertItemToResponseDTO(targetItem), nil
+	result0 = s.convertItemToResponseDTO(targetItem)
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) DeleteShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID) error {
+func (s *shoppingListService) DeleteShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "shoppingListID": shoppingListID, "itemID": itemID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.DeleteShoppingListItem"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.DeleteShoppingListItem"), zap.Any("params", __logParams))
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.ErrShoppingListNotFound
+			result0 = domain.ErrShoppingListNotFound
+			return
 		}
-		return fmt.Errorf("get shopping list: %w", err)
+		result0 = fmt.Errorf("get shopping list: %w", err)
+		return
 	}
 
 	if shoppingList.UserID != userID {
-		return domain.ErrUnauthorized
+		result0 = domain.ErrUnauthorized
+		return
 	}
 
 	found := false
@@ -356,20 +473,31 @@ func (s *shoppingListService) DeleteShoppingListItem(ctx context.Context, userID
 	}
 
 	if !found {
-		return domain.ErrItemNotFound
+		result0 = domain.ErrItemNotFound
+		return
 	}
 
 	if err := s.shoppingListRepo.DeleteItem(ctx, itemID); err != nil {
-		return fmt.Errorf("delete shopping list item: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = fmt.Errorf("delete shopping list item: %w", err)
+		return
 	}
-
-	return nil
+	result0 = nil
+	return
 }
 
-func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID uuid.UUID, input dto.GenerateAIShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
+func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID uuid.UUID, input dto.GenerateAIShoppingListDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Any("params", __logParams))
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("get user profile: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("get user profile: %w", err)
+		return
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -378,23 +506,36 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 
 	pantry, err := s.pantryRepo.GetByID(ctx, input.PantryID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrPantryNotFound
+			result0 = nil
+			result1 = domain.ErrPantryNotFound
+			return
 		}
-		return nil, fmt.Errorf("get pantry: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("get pantry: %w", err)
+		return
 	}
 
 	hasAccess, err := s.pantryRepo.IsUserInPantry(ctx, input.PantryID, userID)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 	if !hasAccess {
-		return nil, domain.ErrPantryAccessDenied
+		result0 = nil
+		result1 = domain.ErrPantryAccessDenied
+		return
 	}
 
 	pantryInsights, err := s.analyzePantryHistory(ctx, []*pantryModel.Pantry{pantry})
 	if err != nil {
-		return nil, fmt.Errorf("analyze pantry history: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("analyze pantry history: %w", err)
+		return
 	}
 
 	budget := s.determineBudget(input, profile)
@@ -405,7 +546,10 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 
 	prompt, err := s.buildShoppingListPrompt(input, profile, pantryInsights, budget, includeBasics)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", domain.ErrPromptBuildFailed, err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("%w: %v", domain.ErrPromptBuildFailed, err)
+		return
 	}
 
 	llmResponse, err := s.llmService.GenerateText(ctx, prompt, map[string]interface{}{
@@ -414,50 +558,81 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 		"response_format": "json",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", domain.ErrAIRequestFailed, err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("%w: %v", domain.ErrAIRequestFailed, err)
+		return
 	}
 
 	shoppingList, err := s.parseAIResponse(userID, input, budget, llmResponse.Response)
 	if err != nil {
-		return nil, err
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
 	}
 
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
-		return nil, fmt.Errorf("create ai shopping list: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("create ai shopping list: %w", err)
+		return
 	}
 
 	created, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.ErrShoppingListNotFound
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
 		}
-		return nil, fmt.Errorf("reload shopping list: %w", err)
+		result0 = nil
+		result1 = fmt.Errorf("reload shopping list: %w", err)
+		return
 	}
-
-	return s.convertToResponseDTO(ctx, created), nil
+	result0 = s.convertToResponseDTO(ctx, created)
+	result1 = nil
+	return
 }
 
 // Helper methods
 
-func (s *shoppingListService) determineBudget(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile) float64 {
+func (s *shoppingListService) determineBudget(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile) (result0 float64) {
+	__logParams := map[string]any{"s": s, "input": input, "profile": profile}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.determineBudget"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.determineBudget"), zap.Any("params", __logParams))
 	if input.MaxBudget != nil && *input.MaxBudget > 0 {
-		return *input.MaxBudget
+		result0 = *input.MaxBudget
+		return
 	}
 	if profile != nil {
 		if profile.PreferredBudget > 0 {
-			return profile.PreferredBudget
+			result0 = profile.PreferredBudget
+			return
 		}
 		if profile.MonthlyIncome > 0 {
 			calculated := profile.MonthlyIncome * 0.15
 			if calculated > 0 {
-				return calculated
+				result0 = calculated
+				return
 			}
 		}
 	}
-	return 300.0
+	result0 = 300.0
+	return
 }
 
-func (s *shoppingListService) resolvePantryNames(ctx context.Context, lists []*shoppingModel.ShoppingList) map[uuid.UUID]string {
+func (s *shoppingListService) resolvePantryNames(ctx context.Context, lists []*shoppingModel.ShoppingList) (result0 map[uuid.UUID]string) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "lists": lists}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.resolvePantryNames"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.resolvePantryNames"), zap.Any("params", __logParams))
 	names := make(map[uuid.UUID]string)
 	seen := make(map[uuid.UUID]struct{})
 	for _, sl := range lists {
@@ -473,10 +648,17 @@ func (s *shoppingListService) resolvePantryNames(ctx context.Context, lists []*s
 			names[id] = pantry.Name
 		}
 	}
-	return names
+	result0 = names
+	return
 }
 
-func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shoppingModel.ShoppingList) *dto.ShoppingListResponseDTO {
+func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shoppingModel.ShoppingList) (result0 *dto.ShoppingListResponseDTO) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "sl": sl}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.convertToResponseDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.convertToResponseDTO"), zap.Any("params", __logParams))
 	items := make([]dto.ShoppingListItemResponseDTO, 0, len(sl.Items))
 	for _, item := range sl.Items {
 		items = append(items, *s.convertItemToResponseDTO(&item))
@@ -489,8 +671,7 @@ func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shop
 		pantryID = &idStr
 		pantryName = s.lookupPantryName(ctx, *sl.PantryID)
 	}
-
-	return &dto.ShoppingListResponseDTO{
+	result0 = &dto.ShoppingListResponseDTO{
 		ID:            sl.ID.String(),
 		UserID:        sl.UserID.String(),
 		PantryID:      pantryID,
@@ -505,18 +686,34 @@ func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shop
 		CreatedAt:     sl.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     sl.UpdatedAt.Format(time.RFC3339),
 	}
+	return
 }
 
-func (s *shoppingListService) lookupPantryName(ctx context.Context, pantryID uuid.UUID) string {
+func (s *shoppingListService) lookupPantryName(ctx context.Context, pantryID uuid.UUID) (result0 string) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.lookupPantryName"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.lookupPantryName"), zap.Any("params", __logParams))
 	pantry, err := s.pantryRepo.GetByID(ctx, pantryID)
 	if err != nil {
-		return ""
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.lookupPantryName"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = ""
+		return
 	}
-	return pantry.Name
+	result0 = pantry.Name
+	return
 }
 
-func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.ShoppingListItem) *dto.ShoppingListItemResponseDTO {
-	return &dto.ShoppingListItemResponseDTO{
+func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.ShoppingListItem) (result0 *dto.ShoppingListItemResponseDTO) {
+	__logParams := map[string]any{"s": s, "item": item}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.convertItemToResponseDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.convertItemToResponseDTO"), zap.Any("params", __logParams))
+	result0 = &dto.ShoppingListItemResponseDTO{
 		ID:             item.ID.String(),
 		ShoppingListID: item.ShoppingListID.String(),
 		Name:           item.Name,
@@ -533,9 +730,16 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      item.UpdatedAt.Format(time.RFC3339),
 	}
+	return
 }
 
-func (s *shoppingListService) analyzePantryHistory(ctx context.Context, pantries []*pantryModel.Pantry) (*PantryInsights, error) {
+func (s *shoppingListService) analyzePantryHistory(ctx context.Context, pantries []*pantryModel.Pantry) (result0 *PantryInsights, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantries": pantries}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.analyzePantryHistory"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.analyzePantryHistory"), zap.Any("params", __logParams))
 	insights := &PantryInsights{
 		CommonItems:       []ItemInsight{},
 		LowStockItems:     []ItemInsight{},
@@ -573,11 +777,18 @@ func (s *shoppingListService) analyzePantryHistory(ctx context.Context, pantries
 			insights.AverageItemPrice[itemName] = sum / float64(count)
 		}
 	}
-
-	return insights, nil
+	result0 = insights
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile, insights *PantryInsights, budget float64, includeBasics bool) (string, error) {
+func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile, insights *PantryInsights, budget float64, includeBasics bool) (result0 string, result1 error) {
+	__logParams := map[string]any{"s": s, "input": input, "profile": profile, "insights": insights, "budget": budget, "includeBasics": includeBasics}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.buildShoppingListPrompt"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.buildShoppingListPrompt"), zap.Any("params", __logParams))
 	shoppingType := input.ShoppingType
 	if shoppingType == "" {
 		shoppingType = "general"
@@ -694,23 +905,35 @@ FORMATO DE RESPOSTA (JSON):
 PRIORIDADES: 1=essencial, 2=importante, 3=desejável
 
 Crie a lista agora:`
-
-	return prompt, nil
+	result0 = prompt
+	result1 = nil
+	return
 }
 
-func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, aiResponse string) (*shoppingModel.ShoppingList, error) {
+func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, aiResponse string) (result0 *shoppingModel.ShoppingList, result1 error) {
+	__logParams := map[string]any{"s": s, "userID": userID, "input": input, "budget": budget, "aiResponse": aiResponse}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Any("params", __logParams))
 	var aiList AIShoppingListResponse
 
 	jsonStart := strings.Index(aiResponse, "{")
 	jsonEnd := strings.LastIndex(aiResponse, "}")
 	if jsonStart == -1 || jsonEnd == -1 {
-		return nil, domain.ErrAIResponseInvalid
+		result0 = nil
+		result1 = domain.ErrAIResponseInvalid
+		return
 	}
 
 	jsonResponse := aiResponse[jsonStart : jsonEnd+1]
 
 	if err := json.Unmarshal([]byte(jsonResponse), &aiList); err != nil {
-		return nil, fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
+		return
 	}
 
 	pantryID := input.PantryID
@@ -745,6 +968,7 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 
 		shoppingList.Items = append(shoppingList.Items, item)
 	}
-
-	return shoppingList, nil
+	result0 = shoppingList
+	result1 = nil
+	return
 }

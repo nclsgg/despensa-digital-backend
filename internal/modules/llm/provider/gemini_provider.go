@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	"go.uber.org/zap"
 )
 
 // GeminiProvider implementa o provedor Google Gemini
@@ -20,28 +21,46 @@ type GeminiProvider struct {
 }
 
 // NewGeminiProvider cria uma nova instância do provedor Gemini
-func NewGeminiProvider(config *model.LLMConfig) *GeminiProvider {
+func NewGeminiProvider(config *model.LLMConfig) (result0 *GeminiProvider) {
+	__logParams := map[string]any{"config": config}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewGeminiProvider"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// Chat realiza uma conversa com o Gemini
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewGeminiProvider"), zap.Any("params", __logParams))
 	timeout := config.Timeout
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
-
-	return &GeminiProvider{
+	result0 = &GeminiProvider{
 		config: config,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
 	}
+	return
 }
 
-// Chat realiza uma conversa com o Gemini
-func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (*model.LLMResponse, error) {
-	// Prepara a requisição para a API do Gemini
+func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (result0 *model.LLMResponse, result1 error) {
+	__logParams :=
+		// Prepara a requisição para a API do Gemini
+		map[string]any{"p": p, "ctx": ctx, "request": request}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.Chat"),
+
+			// Adiciona configurações de geração
+			zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.Chat"), zap.Any("params", __logParams))
+
 	geminiRequest := map[string]interface{}{
 		"contents": p.convertMessages(request.Messages),
 	}
 
-	// Adiciona configurações de geração
 	generationConfig := make(map[string]interface{})
 
 	if request.MaxTokens > 0 {
@@ -64,10 +83,15 @@ func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 	// Serializa a requisição
 	jsonData, err := json.Marshal(geminiRequest)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao serializar requisição: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*GeminiProvider.Chat"), zap.Error(
+
+			// Cria a requisição HTTP
+			err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao serializar requisição: %w", err)
+		return
 	}
 
-	// Cria a requisição HTTP
 	baseURL := p.config.BaseURL
 	if baseURL == "" {
 		baseURL = "https://generativelanguage.googleapis.com/v1beta"
@@ -78,10 +102,15 @@ func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*GeminiProvider.Chat"), zap.Error(
+
+			// Adiciona headers
+			err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		return
 	}
 
-	// Adiciona headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-goog-api-key", p.config.APIKey)
 
@@ -105,7 +134,9 @@ func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 		if attempt > 0 {
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				result0 = nil
+				result1 = ctx.Err()
+				return
 			case <-time.After(retryDelay):
 			}
 		}
@@ -116,36 +147,64 @@ func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (*
 		}
 
 		if response != nil {
+			zap.L().Error(
+				"function.error",
+				zap.String("func", "*GeminiProvider.Chat"),
+				zap.Int("status_code", response.StatusCode),
+				zap.String("status", response.Status),
+				zap.Any("params", __logParams),
+			)
 			response.Body.Close()
 		}
 	}
 
 	if lastErr != nil {
-		return nil, fmt.Errorf("erro na requisição HTTP após %d tentativas: %w", maxRetries, lastErr)
+		zap.L().Error("function.error", zap.String("func", "*GeminiProvider.Chat"), zap.Error(lastErr), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro na requisição HTTP após %d tentativas: %w", maxRetries, lastErr)
+		return
 	}
 	defer response.Body.Close()
 
 	// Lê a resposta
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler resposta: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*GeminiProvider.Chat"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao ler resposta: %w", err)
+		return
 	}
 
 	if response.StatusCode != 200 {
-		return nil, p.parseError(body, response.StatusCode)
+		result0 = nil
+		result1 = p.parseError(body, response.StatusCode)
+		return
 	}
 
 	// Parse da resposta do Gemini
 	var geminiResponse GeminiChatResponse
 	if err := json.Unmarshal(body, &geminiResponse); err != nil {
-		return nil, fmt.Errorf("erro ao fazer parse da resposta: %w", err)
+		zap.L().Error("function.error", zap.String("func", "*GeminiProvider.Chat"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("erro ao fazer parse da resposta: %w", err)
+		return
 	}
-
-	return p.convertResponse(&geminiResponse), nil
+	result0 = p.convertResponse(&geminiResponse)
+	result1 = nil
+	return
 }
 
 // convertMessages converte mensagens para o formato do Gemini
-func (p *GeminiProvider) convertMessages(messages []model.Message) []map[string]interface{} {
+func (p *GeminiProvider) convertMessages(messages []model.Message) (result0 []map[string]interface{}) {
+	__logParams := map[string]any{"p": p, "messages": messages}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.convertMessages"), zap.Any("result", result0), zap.Duration(
+
+			// Gemini não tem role system, então convertemos para user
+			"duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.convertMessages"), zap.Any("params", __logParams))
 	var geminiMessages []map[string]interface{}
 
 	for _, msg := range messages {
@@ -153,7 +212,7 @@ func (p *GeminiProvider) convertMessages(messages []model.Message) []map[string]
 		if msg.Role == model.RoleAssistant {
 			role = "model"
 		} else if msg.Role == model.RoleSystem {
-			// Gemini não tem role system, então convertemos para user
+
 			role = "user"
 		}
 
@@ -166,12 +225,18 @@ func (p *GeminiProvider) convertMessages(messages []model.Message) []map[string]
 			},
 		})
 	}
-
-	return geminiMessages
+	result0 = geminiMessages
+	return
 }
 
 // convertResponse converte a resposta do Gemini para o formato padrão
-func (p *GeminiProvider) convertResponse(geminiResponse *GeminiChatResponse) *model.LLMResponse {
+func (p *GeminiProvider) convertResponse(geminiResponse *GeminiChatResponse) (result0 *model.LLMResponse) {
+	__logParams := map[string]any{"p": p, "geminiResponse": geminiResponse}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.convertResponse"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.convertResponse"), zap.Any("params", __logParams))
 	response := &model.LLMResponse{
 		ID:      fmt.Sprintf("gemini-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -205,81 +270,166 @@ func (p *GeminiProvider) convertResponse(geminiResponse *GeminiChatResponse) *mo
 			TotalTokens:      geminiResponse.UsageMetadata.TotalTokenCount,
 		}
 	}
-
-	return response
+	result0 = response
+	return
 }
 
 // convertFinishReason converte o motivo de finalização do Gemini
-func (p *GeminiProvider) convertFinishReason(reason string) string {
+func (p *GeminiProvider) convertFinishReason(reason string) (result0 string) {
+	__logParams := map[string]any{"p": p, "reason": reason}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.convertFinishReason"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// parseError faz o parse de erros da API do Gemini
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.convertFinishReason"), zap.Any("params", __logParams))
 	switch reason {
 	case "STOP":
-		return "stop"
+		result0 = "stop"
+		return
 	case "MAX_TOKENS":
-		return "length"
+		result0 = "length"
+		return
 	case "SAFETY":
-		return "content_filter"
+		result0 = "content_filter"
+		return
 	case "RECITATION":
-		return "content_filter"
+		result0 = "content_filter"
+		return
 	default:
-		return "stop"
+		result0 = "stop"
+		return
 	}
 }
 
-// parseError faz o parse de erros da API do Gemini
-func (p *GeminiProvider) parseError(body []byte, statusCode int) error {
+func (p *GeminiProvider) parseError(body []byte, statusCode int) (result0 error) {
+	__logParams := map[string]any{"p": p, "body": body, "statusCode": statusCode}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.parseError"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.parseError"), zap.Any("params", __logParams))
 	var errorResponse map[string]interface{}
 	if err := json.Unmarshal(body, &errorResponse); err == nil {
 		if errorMsg, ok := errorResponse["error"].(map[string]interface{}); ok {
 			if message, ok := errorMsg["message"].(string); ok {
-				return fmt.Errorf("erro da API Gemini (%d): %s", statusCode, message)
+				result0 = fmt.Errorf("erro da API Gemini (%d): %s", statusCode, message)
+				return
 			}
 		}
 	}
-	return fmt.Errorf("erro da API Gemini (%d): %s", statusCode, string(body))
+	result0 = fmt.Errorf("erro da API Gemini (%d): %s", statusCode, string(body))
+	return
 }
 
 // getModel retorna o modelo a ser usado, com fallback para o padrão
-func (p *GeminiProvider) getModel(requestModel string) string {
+func (p *GeminiProvider) getModel(requestModel string) (result0 string) {
+	__logParams := map[string]any{"p": p, "requestModel": requestModel}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.getModel"),
+
+			// GetProviderName retorna o nome do provedor
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry",
+
+		// GetModel retorna o modelo configurado
+		zap.String("func", "*GeminiProvider.getModel"), zap.Any("params", __logParams))
 	if requestModel != "" {
-		return requestModel
+		result0 = requestModel
+		return
 	}
 	if p.config.Model != "" {
-		return p.config.Model
+		result0 = p.config.Model
+		return
 	}
-	return "gemini-2.0-flash"
+	result0 = "gemini-2.0-flash"
+	return
 }
 
-// GetProviderName retorna o nome do provedor
-func (p *GeminiProvider) GetProviderName() string {
-	return "gemini"
+func (p *GeminiProvider) GetProviderName() (result0 string) {
+	__logParams := map[string]any{"p": p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.GetProviderName"), zap.Any("result", result0), zap.Duration("duration", time.
+
+			// EstimateTokens estima a quantidade de tokens
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.GetProviderName"), zap.
+
+		// Estimativa aproximada para Gemini (similar ao GPT)
+		Any("params", __logParams))
+	result0 = "gemini"
+	return
 }
 
-// GetModel retorna o modelo configurado
-func (p *GeminiProvider) GetModel() string {
+func (p *GeminiProvider) GetModel() (result0 string) {
+	__logParams := map[string]any{"p": p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.GetModel"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.GetModel"), zap.Any("params", __logParams))
 	if p.config.Model != "" {
-		return p.config.Model
+		result0 = p.config.Model
+		return
 	}
-	return "gemini-2.0-flash"
+	result0 = "gemini-2.0-flash"
+	return
 }
 
-// EstimateTokens estima a quantidade de tokens
-func (p *GeminiProvider) EstimateTokens(text string) int {
-	// Estimativa aproximada para Gemini (similar ao GPT)
+func (p *GeminiProvider) EstimateTokens(text string) (result0 int) {
+	__logParams := map[string]any{"p": p, "text": text}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.EstimateTokens"),
+
+			// ValidateConfig valida a configuração do provedor
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.EstimateTokens"), zap.Any("params", __logParams))
+
 	words := len(strings.Fields(text))
-	return int(float64(words) * 1.3)
+	result0 = int(float64(words) * 1.3)
+	return
 }
 
-// ValidateConfig valida a configuração do provedor
-func (p *GeminiProvider) ValidateConfig() error {
+func (p *GeminiProvider) ValidateConfig() (result0 error) {
+	__logParams := map[string]any{"p": p}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.ValidateConfig"),
+
+			// IsHealthy verifica se o provedor está funcionando
+			zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry",
+
+		// Faz uma requisição simples para verificar a conectividade
+		zap.String("func", "*GeminiProvider.ValidateConfig"), zap.Any("params", __logParams))
 	if p.config.APIKey == "" {
-		return fmt.Errorf("API key é obrigatória para o provedor Gemini")
+		result0 = fmt.Errorf("API key é obrigatória para o provedor Gemini")
+		return
 	}
-	return nil
+	result0 = nil
+	return
 }
 
-// IsHealthy verifica se o provedor está funcionando
-func (p *GeminiProvider) IsHealthy(ctx context.Context) error {
-	// Faz uma requisição simples para verificar a conectividade
+func (p *GeminiProvider) IsHealthy(ctx context.Context) (result0 error) {
+	__logParams := map[string]any{"p": p, "ctx": ctx}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*GeminiProvider.IsHealthy"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*GeminiProvider.IsHealthy"),
+
+		// GeminiChatResponse representa a resposta da API do Gemini
+		zap.Any("params", __logParams))
+
 	testRequest := &model.LLMRequest{
 		Messages: []model.Message{
 			{
@@ -291,10 +441,10 @@ func (p *GeminiProvider) IsHealthy(ctx context.Context) error {
 	}
 
 	_, err := p.Chat(ctx, testRequest)
-	return err
+	result0 = err
+	return
 }
 
-// GeminiChatResponse representa a resposta da API do Gemini
 type GeminiChatResponse struct {
 	Candidates []struct {
 		Content struct {

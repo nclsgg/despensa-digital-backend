@@ -10,13 +10,20 @@ import (
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	profileModel "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/model"
 	shoppingListModel "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/model"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
 
-func ConnectPostgres(cfg *config.Config) *gorm.DB {
+func ConnectPostgres(cfg *config.Config) (result0 *gorm.DB) {
+	__logParams := map[string]any{"cfg": cfg}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "ConnectPostgres"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "ConnectPostgres"), zap.Any("params", __logParams))
 	log.Println("Connecting to database...")
 
 	maxAttempts := 3
@@ -25,6 +32,7 @@ func ConnectPostgres(cfg *config.Config) *gorm.DB {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		db, err := gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{})
 		if err != nil {
+			zap.L().Error("function.error", zap.String("func", "ConnectPostgres"), zap.Error(err), zap.Any("params", __logParams))
 			log.Printf("Error connecting to database: %v\n", err)
 			log.Printf("Retrying in %v...\n", delay)
 			time.Sleep(delay)
@@ -33,14 +41,22 @@ func ConnectPostgres(cfg *config.Config) *gorm.DB {
 
 		log.Println("Connected to database")
 		DB = db
-		return db
+		result0 = db
+		return
 	}
 
 	log.Fatalf("Failed to connect to database after %d attempts", maxAttempts)
-	return nil
+	result0 = nil
+	return
 }
 
 func MigrateItems(db *gorm.DB) {
+	__logParams := map[string]any{"db": db}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "MigrateItems"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "MigrateItems"), zap.Any("params", __logParams))
 	log.Println("Migrating database...")
 
 	err := db.AutoMigrate(
@@ -55,6 +71,7 @@ func MigrateItems(db *gorm.DB) {
 		&shoppingListModel.ShoppingListItem{},
 	)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "MigrateItems"), zap.Error(err), zap.Any("params", __logParams))
 		log.Fatalf("Error migrating database: %v", err)
 	}
 

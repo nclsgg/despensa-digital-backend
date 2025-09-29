@@ -1,6 +1,11 @@
 package dto
 
-import "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+import (
+	"time"
+
+	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
+	"go.uber.org/zap"
+)
 
 // ChatRequestDTO representa uma solicitação de chat simples
 type ChatRequestDTO struct {
@@ -76,6 +81,12 @@ type RecipeRequestDTO struct {
 
 // SetDefaults preenche campos opcionais com valores padrão se não enviados
 func (dto *RecipeRequestDTO) SetDefaults() {
+	__logParams := map[string]any{"dto": dto}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeRequestDTO.SetDefaults"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeRequestDTO.SetDefaults"), zap.Any("params", __logParams))
 	if dto.DietaryRestrictions == nil {
 		dto.DietaryRestrictions = []string{}
 	}
@@ -87,7 +98,6 @@ func (dto *RecipeRequestDTO) SetDefaults() {
 	}
 }
 
-// RecipeResponseDTO representa a resposta de uma receita gerada
 type RecipeResponseDTO struct {
 	ID                  string                 `json:"id"`
 	Title               string                 `json:"title"`
@@ -127,17 +137,23 @@ type RecipeInstructionDTO struct {
 
 // RecipeNutritionDTO representa informações nutricionais
 type RecipeNutritionDTO struct {
-	Calories      int     `json:"calories,omitempty"`
-	Protein       float64 `json:"protein,omitempty"`
-	Carbohydrates float64 `json:"carbohydrates,omitempty"`
-	Fat           float64 `json:"fat,omitempty"`
-	Fiber         float64 `json:"fiber,omitempty"`
-	Sugar         float64 `json:"sugar,omitempty"`
-	Sodium        float64 `json:"sodium,omitempty"`
+	Calories      *float64 `json:"calories,omitempty"`
+	Protein       *float64 `json:"protein,omitempty"`
+	Carbohydrates *float64 `json:"carbohydrates,omitempty"`
+	Fat           *float64 `json:"fat,omitempty"`
+	Fiber         *float64 `json:"fiber,omitempty"`
+	Sugar         *float64 `json:"sugar,omitempty"`
+	Sodium        *float64 `json:"sodium,omitempty"`
 }
 
 // ToLLMRequest converte LLMRequestDTO para model.LLMRequest
-func (dto *LLMRequestDTO) ToLLMRequest() *model.LLMRequest {
+func (dto *LLMRequestDTO) ToLLMRequest() (result0 *model.LLMRequest) {
+	__logParams := map[string]any{"dto": dto}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMRequestDTO.ToLLMRequest"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMRequestDTO.ToLLMRequest"), zap.Any("params", __logParams))
 	messages := make([]model.Message, len(dto.Messages))
 	for i, msg := range dto.Messages {
 		messages[i] = model.Message{
@@ -145,8 +161,7 @@ func (dto *LLMRequestDTO) ToLLMRequest() *model.LLMRequest {
 			Content: msg.Content,
 		}
 	}
-
-	return &model.LLMRequest{
+	result0 = &model.LLMRequest{
 		Messages:         messages,
 		MaxTokens:        dto.MaxTokens,
 		Temperature:      dto.Temperature,
@@ -157,16 +172,22 @@ func (dto *LLMRequestDTO) ToLLMRequest() *model.LLMRequest {
 		Stream:           dto.Stream,
 		Metadata:         dto.Metadata,
 	}
+	return
 }
 
 // FromLLMResponse converte model.LLMResponse para LLMResponseDTO
-func FromLLMResponse(response *model.LLMResponse) *LLMResponseDTO {
+func FromLLMResponse(response *model.LLMResponse) (result0 *LLMResponseDTO) {
+	__logParams := map[string]any{"response": response}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "FromLLMResponse"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "FromLLMResponse"), zap.Any("params", __logParams))
 	var responseText string
 	if len(response.Choices) > 0 {
 		responseText = response.Choices[0].Message.Content
 	}
-
-	return &LLMResponseDTO{
+	result0 = &LLMResponseDTO{
 		ID:       response.ID,
 		Response: responseText,
 		Model:    response.Model,
@@ -177,4 +198,5 @@ func FromLLMResponse(response *model.LLMResponse) *LLMResponseDTO {
 		},
 		Metadata: response.Metadata,
 	}
+	return
 }

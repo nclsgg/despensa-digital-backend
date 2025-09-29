@@ -11,6 +11,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -19,45 +20,92 @@ type fakeItemCategoryRepository struct {
 	createErr error
 }
 
-func newFakeItemCategoryRepository() *fakeItemCategoryRepository {
-	return &fakeItemCategoryRepository{store: make(map[uuid.UUID]*model.ItemCategory)}
+func newFakeItemCategoryRepository() (result0 *fakeItemCategoryRepository) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "newFakeItemCategoryRepository"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "newFakeItemCategoryRepository"), zap.Any("params", __logParams))
+	result0 = &fakeItemCategoryRepository{store: make(map[uuid.UUID]*model.ItemCategory)}
+	return
 }
 
-func (f *fakeItemCategoryRepository) Create(ctx context.Context, category *model.ItemCategory) error {
+func (f *fakeItemCategoryRepository) Create(ctx context.Context, category *model.ItemCategory) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "category": category}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.Create"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.Create"), zap.Any("params", __logParams))
 	if f.createErr != nil {
-		return f.createErr
+		result0 = f.createErr
+		return
 	}
 	clone := *category
 	f.store[category.ID] = &clone
-	return nil
+	result0 = nil
+	return
 }
 
-func (f *fakeItemCategoryRepository) Update(ctx context.Context, category *model.ItemCategory) error {
+func (f *fakeItemCategoryRepository) Update(ctx context.Context, category *model.ItemCategory) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "category": category}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.Update"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.Update"), zap.Any("params", __logParams))
 	if _, ok := f.store[category.ID]; !ok {
-		return errors.New("not found")
+		result0 = errors.New("not found")
+		return
 	}
 	clone := *category
 	f.store[category.ID] = &clone
-	return nil
+	result0 = nil
+	return
 }
 
-func (f *fakeItemCategoryRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.ItemCategory, error) {
+func (f *fakeItemCategoryRepository) FindByID(ctx context.Context, id uuid.UUID) (result0 *model.ItemCategory, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.FindByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.FindByID"), zap.Any("params", __logParams))
 	if cat, ok := f.store[id]; ok {
 		clone := *cat
-		return &clone, nil
+		result0 = &clone
+		result1 = nil
+		return
 	}
-	return nil, gorm.ErrRecordNotFound
+	result0 = nil
+	result1 = gorm.ErrRecordNotFound
+	return
 }
 
-func (f *fakeItemCategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (f *fakeItemCategoryRepository) Delete(ctx context.Context, id uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.Delete"), zap.Any("params", __logParams))
 	if _, ok := f.store[id]; !ok {
-		return gorm.ErrRecordNotFound
+		result0 = gorm.ErrRecordNotFound
+		return
 	}
 	delete(f.store, id)
-	return nil
+	result0 = nil
+	return
 }
 
-func (f *fakeItemCategoryRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID) ([]*model.ItemCategory, error) {
+func (f *fakeItemCategoryRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID) (result0 []*model.ItemCategory, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.ListByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.ListByPantryID"), zap.Any("params", __logParams))
 	var result []*model.ItemCategory
 	for _, cat := range f.store {
 		if cat.PantryID == pantryID {
@@ -65,10 +113,18 @@ func (f *fakeItemCategoryRepository) ListByPantryID(ctx context.Context, pantryI
 			result = append(result, &clone)
 		}
 	}
-	return result, nil
+	result0 = result
+	result1 = nil
+	return
 }
 
-func (f *fakeItemCategoryRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*model.ItemCategory, error) {
+func (f *fakeItemCategoryRepository) ListByUserID(ctx context.Context, userID uuid.UUID) (result0 []*model.ItemCategory, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakeItemCategoryRepository.ListByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakeItemCategoryRepository.ListByUserID"), zap.Any("params", __logParams))
 	var result []*model.ItemCategory
 	for _, cat := range f.store {
 		if cat.AddedBy == userID {
@@ -76,7 +132,9 @@ func (f *fakeItemCategoryRepository) ListByUserID(ctx context.Context, userID uu
 			result = append(result, &clone)
 		}
 	}
-	return result, nil
+	result0 = result
+	result1 = nil
+	return
 }
 
 type fakePantryRepository struct {
@@ -84,64 +142,163 @@ type fakePantryRepository struct {
 	isUserInPantryErr error
 }
 
-func newFakePantryRepository() *fakePantryRepository {
-	return &fakePantryRepository{memberships: make(map[uuid.UUID]map[uuid.UUID]bool)}
+func newFakePantryRepository() (result0 *fakePantryRepository) {
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "newFakePantryRepository"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "newFakePantryRepository"), zap.Any("params", __logParams))
+	result0 = &fakePantryRepository{memberships: make(map[uuid.UUID]map[uuid.UUID]bool)}
+	return
 }
 
 func (f *fakePantryRepository) setMembership(pantryID, userID uuid.UUID, isMember bool) {
+	__logParams := map[string]any{"f": f, "pantryID": pantryID, "userID": userID, "isMember": isMember}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.setMembership"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.setMembership"), zap.Any("params", __logParams))
 	if _, ok := f.memberships[pantryID]; !ok {
 		f.memberships[pantryID] = make(map[uuid.UUID]bool)
 	}
 	f.memberships[pantryID][userID] = isMember
 }
 
-func (f *fakePantryRepository) Create(ctx context.Context, pantry *pantryModel.Pantry) (*pantryModel.Pantry, error) {
-	return nil, errors.New("not implemented")
+func (f *fakePantryRepository) Create(ctx context.Context, pantry *pantryModel.Pantry) (result0 *pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantry": pantry}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.Create"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.Create"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) Delete(ctx context.Context, pantryID uuid.UUID) error {
-	return errors.New("not implemented")
+func (f *fakePantryRepository) Delete(ctx context.Context, pantryID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.Delete"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) Update(ctx context.Context, pantry *pantryModel.Pantry) error {
-	return errors.New("not implemented")
+func (f *fakePantryRepository) Update(ctx context.Context, pantry *pantryModel.Pantry) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantry": pantry}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.Update"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.Update"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) GetByID(ctx context.Context, pantryID uuid.UUID) (*pantryModel.Pantry, error) {
-	return nil, errors.New("not implemented")
+func (f *fakePantryRepository) GetByID(ctx context.Context, pantryID uuid.UUID) (result0 *pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.GetByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.GetByID"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) GetByUser(ctx context.Context, userID uuid.UUID) ([]*pantryModel.Pantry, error) {
-	return nil, errors.New("not implemented")
+func (f *fakePantryRepository) GetByUser(ctx context.Context, userID uuid.UUID) (result0 []*pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.GetByUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.GetByUser"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) IsUserInPantry(ctx context.Context, pantryID, userID uuid.UUID) (bool, error) {
+func (f *fakePantryRepository) IsUserInPantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 bool, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.IsUserInPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.IsUserInPantry"), zap.Any("params", __logParams))
 	if f.isUserInPantryErr != nil {
-		return false, f.isUserInPantryErr
+		result0 = false
+		result1 = f.isUserInPantryErr
+		return
 	}
 	if users, ok := f.memberships[pantryID]; ok {
-		return users[userID], nil
+		result0 = users[userID]
+		result1 = nil
+		return
 	}
-	return false, nil
+	result0 = false
+	result1 = nil
+	return
 }
 
-func (f *fakePantryRepository) IsUserOwner(ctx context.Context, pantryID, userID uuid.UUID) (bool, error) {
-	return false, errors.New("not implemented")
+func (f *fakePantryRepository) IsUserOwner(ctx context.Context, pantryID, userID uuid.UUID) (result0 bool, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.IsUserOwner"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.IsUserOwner"), zap.Any("params", __logParams))
+	result0 = false
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) AddUserToPantry(ctx context.Context, pantryUser *pantryModel.PantryUser) error {
-	return errors.New("not implemented")
+func (f *fakePantryRepository) AddUserToPantry(ctx context.Context, pantryUser *pantryModel.PantryUser) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryUser": pantryUser}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.AddUserToPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.AddUserToPantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) RemoveUserFromPantry(ctx context.Context, pantryID, userID uuid.UUID) error {
-	return errors.New("not implemented")
+func (f *fakePantryRepository) RemoveUserFromPantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.RemoveUserFromPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.RemoveUserFromPantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (f *fakePantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) ([]*pantryModel.PantryUserInfo, error) {
-	return nil, errors.New("not implemented")
+func (f *fakePantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) (result0 []*pantryModel.PantryUserInfo, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.ListUsersInPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.ListUsersInPantry"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
 func TestItemCategoryService_Create_InvalidPantry(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestItemCategoryService_Create_InvalidPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestItemCategoryService_Create_InvalidPantry"), zap.Any("params", __logParams))
 	repo := newFakeItemCategoryRepository()
 	pantryRepo := newFakePantryRepository()
 	service := NewItemCategoryService(repo, pantryRepo)
@@ -158,6 +315,12 @@ func TestItemCategoryService_Create_InvalidPantry(t *testing.T) {
 }
 
 func TestItemCategoryService_Create_Unauthorized(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestItemCategoryService_Create_Unauthorized"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestItemCategoryService_Create_Unauthorized"), zap.Any("params", __logParams))
 	repo := newFakeItemCategoryRepository()
 	pantryRepo := newFakePantryRepository()
 	service := NewItemCategoryService(repo, pantryRepo)
@@ -178,6 +341,12 @@ func TestItemCategoryService_Create_Unauthorized(t *testing.T) {
 }
 
 func TestItemCategoryService_Create_Success(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestItemCategoryService_Create_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestItemCategoryService_Create_Success"), zap.Any("params", __logParams))
 	repo := newFakeItemCategoryRepository()
 	pantryRepo := newFakePantryRepository()
 	service := NewItemCategoryService(repo, pantryRepo)
@@ -192,6 +361,7 @@ func TestItemCategoryService_Create_Success(t *testing.T) {
 		Color:    "#F1F1F1",
 	}, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestItemCategoryService_Create_Success"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -217,10 +387,12 @@ func TestItemCategoryService_Create_Success(t *testing.T) {
 
 	parsedCreated, err := time.Parse(time.RFC3339, resp.CreatedAt)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestItemCategoryService_Create_Success"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("created_at should be RFC3339: %v", err)
 	}
 	parsedUpdated, err := time.Parse(time.RFC3339, resp.UpdatedAt)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestItemCategoryService_Create_Success"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("updated_at should be RFC3339: %v", err)
 	}
 	if parsedCreated.IsZero() || parsedUpdated.IsZero() {

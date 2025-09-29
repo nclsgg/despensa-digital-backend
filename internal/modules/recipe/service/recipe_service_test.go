@@ -13,6 +13,7 @@ import (
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	pantrySvc "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
+	"go.uber.org/zap"
 )
 
 type stubItemRepository struct {
@@ -20,82 +21,218 @@ type stubItemRepository struct {
 	err   error
 }
 
-func (s *stubItemRepository) Create(ctx context.Context, item *model.Item) error {
-	return errors.New("not implemented")
+func (s *stubItemRepository) Create(ctx context.Context, item *model.Item) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "item": item}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.Create"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.Create"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubItemRepository) Update(ctx context.Context, item *model.Item) error {
-	return errors.New("not implemented")
+func (s *stubItemRepository) Update(ctx context.Context, item *model.Item) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "item": item}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.Update"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.Update"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubItemRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.Item, error) {
-	return nil, errors.New("not implemented")
+func (s *stubItemRepository) FindByID(ctx context.Context, id uuid.UUID) (result0 *model.Item, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.FindByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.FindByID"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubItemRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return errors.New("not implemented")
+func (s *stubItemRepository) Delete(ctx context.Context, id uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.Delete"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubItemRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID) ([]*model.Item, error) {
-	return s.items, s.err
+func (s *stubItemRepository) ListByPantryID(ctx context.Context, pantryID uuid.UUID) (result0 []*model.Item, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.ListByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.ListByPantryID"), zap.Any("params", __logParams))
+	result0 = s.items
+	result1 = s.err
+	return
 }
 
-func (s *stubItemRepository) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO) ([]*model.Item, error) {
-	return nil, errors.New("not implemented")
+func (s *stubItemRepository) FilterByPantryID(ctx context.Context, pantryID uuid.UUID, filters dto.ItemFilterDTO) (result0 []*model.Item, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "filters": filters}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.FilterByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.FilterByPantryID"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubItemRepository) CountByPantryID(ctx context.Context, pantryID uuid.UUID) (int, error) {
-	return 0, errors.New("not implemented")
+func (s *stubItemRepository) CountByPantryID(ctx context.Context, pantryID uuid.UUID) (result0 int, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubItemRepository.CountByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubItemRepository.CountByPantryID"), zap.Any("params", __logParams))
+	result0 = 0
+	result1 = errors.New("not implemented")
+	return
 }
 
 type stubPantryService struct {
 	getPantryFn func(ctx context.Context, pantryID, userID uuid.UUID) (*pantryModel.Pantry, error)
 }
 
-func (s *stubPantryService) CreatePantry(ctx context.Context, name string, ownerID uuid.UUID) (*pantryModel.Pantry, error) {
-	return nil, errors.New("not implemented")
+func (s *stubPantryService) CreatePantry(ctx context.Context, name string, ownerID uuid.UUID) (result0 *pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "name": name, "ownerID": ownerID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.CreatePantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.CreatePantry"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) GetPantry(ctx context.Context, pantryID, userID uuid.UUID) (*pantryModel.Pantry, error) {
+func (s *stubPantryService) GetPantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 *pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.GetPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.GetPantry"), zap.Any("params", __logParams))
 	if s.getPantryFn != nil {
-		return s.getPantryFn(ctx, pantryID, userID)
+		result0, result1 = s.getPantryFn(ctx, pantryID, userID)
+		return
 	}
-	return &pantryModel.Pantry{}, nil
+	result0 = &pantryModel.Pantry{}
+	result1 = nil
+	return
 }
 
-func (s *stubPantryService) GetPantryWithItemCount(ctx context.Context, pantryID, userID uuid.UUID) (*pantryModel.PantryWithItemCount, error) {
-	return nil, errors.New("not implemented")
+func (s *stubPantryService) GetPantryWithItemCount(ctx context.Context, pantryID, userID uuid.UUID) (result0 *pantryModel.PantryWithItemCount, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.GetPantryWithItemCount"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.GetPantryWithItemCount"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) ListPantriesByUser(ctx context.Context, userID uuid.UUID) ([]*pantryModel.Pantry, error) {
-	return nil, errors.New("not implemented")
+func (s *stubPantryService) ListPantriesByUser(ctx context.Context, userID uuid.UUID) (result0 []*pantryModel.Pantry, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.ListPantriesByUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.ListPantriesByUser"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) ListPantriesWithItemCount(ctx context.Context, userID uuid.UUID) ([]*pantryModel.PantryWithItemCount, error) {
-	return nil, errors.New("not implemented")
+func (s *stubPantryService) ListPantriesWithItemCount(ctx context.Context, userID uuid.UUID) (result0 []*pantryModel.PantryWithItemCount, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.ListPantriesWithItemCount"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.ListPantriesWithItemCount"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) DeletePantry(ctx context.Context, pantryID, userID uuid.UUID) error {
-	return errors.New("not implemented")
+func (s *stubPantryService) DeletePantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.DeletePantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.DeletePantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) UpdatePantry(ctx context.Context, pantryID, userID uuid.UUID, newName string) error {
-	return errors.New("not implemented")
+func (s *stubPantryService) UpdatePantry(ctx context.Context, pantryID, userID uuid.UUID, newName string) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID, "newName": newName}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.UpdatePantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.UpdatePantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error {
-	return errors.New("not implemented")
+func (s *stubPantryService) AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "ownerID": ownerID, "targetUser": targetUser}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.AddUserToPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.AddUserToPantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error {
-	return errors.New("not implemented")
+func (s *stubPantryService) RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "ownerID": ownerID, "targetUser": targetUser}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.RemoveUserFromPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.RemoveUserFromPantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
 }
 
-func (s *stubPantryService) ListUsersInPantry(ctx context.Context, pantryID, userID uuid.UUID) ([]*pantryModel.PantryUserInfo, error) {
-	return nil, errors.New("not implemented")
+func (s *stubPantryService) ListUsersInPantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 []*pantryModel.PantryUserInfo, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.ListUsersInPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.ListUsersInPantry"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
 }
 
 func TestRecipeService_GetAvailableIngredients_Errors(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRecipeService_GetAvailableIngredients_Errors"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRecipeService_GetAvailableIngredients_Errors"), zap.Any("params", __logParams))
 	pantryID := uuid.New()
 	userID := uuid.New()
 
@@ -142,6 +279,12 @@ func TestRecipeService_GetAvailableIngredients_Errors(t *testing.T) {
 }
 
 func TestRecipeService_GetAvailableIngredients_Success(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRecipeService_GetAvailableIngredients_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRecipeService_GetAvailableIngredients_Success"), zap.Any("params", __logParams))
 	pantryID := uuid.New()
 	userID := uuid.New()
 	now := time.Now()
@@ -186,6 +329,7 @@ func TestRecipeService_GetAvailableIngredients_Success(t *testing.T) {
 
 	ingredients, err := svc.GetAvailableIngredients(context.Background(), pantryID, userID)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestRecipeService_GetAvailableIngredients_Success"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -206,6 +350,12 @@ func TestRecipeService_GetAvailableIngredients_Success(t *testing.T) {
 }
 
 func TestRecipeService_ValidateRecipeRequest(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRecipeService_ValidateRecipeRequest"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRecipeService_ValidateRecipeRequest"), zap.Any("params", __logParams))
 	svc := &recipeService{}
 
 	_, err := svc.validateRecipeRequest(&llmDTO.RecipeRequestDTO{})
@@ -222,6 +372,7 @@ func TestRecipeService_ValidateRecipeRequest(t *testing.T) {
 		ServingSize: 4,
 	})
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "TestRecipeService_ValidateRecipeRequest"), zap.Error(err), zap.Any("params", __logParams))
 		t.Fatalf("expected valid request, got error %v", err)
 	}
 

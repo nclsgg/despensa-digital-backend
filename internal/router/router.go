@@ -6,7 +6,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/config"
 	authHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/handler"
@@ -44,16 +46,26 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Client) {
+	__logParams := map[string]any{"r": r, "db": db, "cfg": cfg, "redis": redis}
+	__logStart := time.Now()
+	defer func() {
+		zap.
+
+			// User repository (needed for auth middleware)
+			L().Info("function.exit", zap.String("func", "SetupRoutes"), zap.Any("result", nil), zap.Duration("duration",
+
+			// OAuth-only auth routes
+			time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "SetupRoutes"), zap.Any("params", __logParams))
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
 	})
 
-	// User repository (needed for auth middleware)
 	userRepoInstance := userRepo.NewUserRepository(db)
 
-	// OAuth-only auth routes
 	authRepoInstance := authRepo.NewAuthRepository(db)
 	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg, redis)
 

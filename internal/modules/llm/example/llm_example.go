@@ -7,16 +7,27 @@ import (
 
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
+	"go.uber.org/zap"
 )
 
 // Exemplo de uso do módulo LLM
 func main() {
-	fmt.Println("=== Exemplo de uso do módulo LLM ===")
+	__logParams := map[string]any{}
+	__logStart := time.Now()
+	defer func(
 
 	// 1. Criar serviço LLM
+	) {
+		zap.L().Info("function.exit", zap.String("func", "main"), zap.Any("result",
+
+			// 2. Configurar provedor Gemini como padrão
+			nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "main"), zap.Any("params", __logParams))
+	fmt.Println("=== Exemplo de uso do módulo LLM ===")
+
 	llmService := service.NewLLMService()
 
-	// 2. Configurar provedor Gemini como padrão
 	geminiConfig := &model.LLMConfig{
 		Provider:      model.ProviderGemini,
 		APIKey:        "AIzaSyC7eWrQc4jNKoFRkxWN2bD3Zq1GlHo8i4M", // Em produção, usar variáveis de ambiente
@@ -29,6 +40,7 @@ func main() {
 
 	// 3. Adicionar configuração do provedor
 	if err := llmService.AddProviderConfig("gemini", geminiConfig); err != nil {
+		zap.L().Error("function.error", zap.String("func", "main"), zap.Error(err), zap.Any("params", __logParams))
 		log.Printf("Erro ao configurar provedor Gemini: %v", err)
 		return
 	}
@@ -52,6 +64,7 @@ Tempo disponível: {{time}} minutos.`
 
 	systemPrompt, err := promptBuilder.BuildSystemPrompt(systemTemplate, variables)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "main"), zap.Error(err), zap.Any("params", __logParams))
 		log.Printf("Erro ao construir prompt: %v", err)
 		return
 	}
@@ -72,6 +85,7 @@ Tempo disponível: {{time}} minutos.`
 	// 7. Mostrar informações do provedor
 	providerInfo, err := llmService.GetProviderInfo()
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "main"), zap.Error(err), zap.Any("params", __logParams))
 		log.Printf("Erro ao obter informações do provedor: %v", err)
 	} else {
 		fmt.Printf("\n🔧 Informações do provedor:\n")

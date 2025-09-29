@@ -6,6 +6,8 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+	"go.uber.org/zap"
+	"time"
 )
 
 // LLMHandler handles LLM-related HTTP requests
@@ -14,37 +16,57 @@ type LLMHandler struct {
 }
 
 // NewLLMHandler creates a new LLM handler
-func NewLLMHandler(llmService *service.LLMServiceImpl) *LLMHandler {
-	return &LLMHandler{
+func NewLLMHandler(llmService *service.LLMServiceImpl) (result0 *LLMHandler) {
+	__logParams := map[string]any{"llmService": llmService}
+	__logStart :=
+
+		// ProcessChatRequest godoc
+		// @Summary Process a chat request with LLM
+		// @Description Send messages to LLM and get response (supports provider selection)
+		// @Tags LLM
+		// @Accept json
+		// @Produce json
+		// @Param request body dto.ChatRequestDTO true "Chat request with optional provider"
+		// @Success 200 {object} response.Response{data=dto.ChatResponseDTO}
+		// @Failure 400 {object} response.Response
+		// @Failure 401 {object} response.Response
+		// @Failure 500 {object} response.Response
+		// @Router /api/v1/llm/chat [post]
+		// @Security BearerAuth
+		time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "NewLLMHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "NewLLMHandler"), zap.Any("params", __logParams))
+	result0 = &LLMHandler{
 		llmService: llmService,
 	}
+	return
 }
 
-// ProcessChatRequest godoc
-// @Summary Process a chat request with LLM
-// @Description Send messages to LLM and get response (supports provider selection)
-// @Tags LLM
-// @Accept json
-// @Produce json
-// @Param request body dto.ChatRequestDTO true "Chat request with optional provider"
-// @Success 200 {object} response.Response{data=dto.ChatResponseDTO}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /api/v1/llm/chat [post]
-// @Security BearerAuth
 func (h *LLMHandler) ProcessChatRequest(c *gin.Context) {
-	var request dto.ChatRequestDTO
+	__logParams := map[string]any{"h": h, "c": c}
 
 	// Parse request body
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Any("result", nil), zap.Duration("duration", time.
+
+			// Process request with LLM service
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Any("params", __logParams))
+	var request dto.ChatRequestDTO
+
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
-	// Process request with LLM service
 	chatResponse, err := h.llmService.ProcessChatRequest(c.Request.Context(), &request)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro ao processar requisição LLM: "+err.Error())
 		return
 	}
@@ -66,17 +88,29 @@ func (h *LLMHandler) ProcessChatRequest(c *gin.Context) {
 // @Router /api/v1/llm/process [post]
 // @Security BearerAuth
 func (h *LLMHandler) ProcessLLMRequest(c *gin.Context) {
-	var request dto.LLMRequestDTO
+	__logParams := map[string]any{"h": h, "c":
 
 	// Parse request body
+	c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Any("result", nil), zap.Duration("duration", time.
+
+			// Process request with LLM service
+			Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Any("params", __logParams))
+	var request dto.LLMRequestDTO
+
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
-	// Process request with LLM service
 	llmResponse, err := h.llmService.ProcessRequest(c.Request.Context(), &request)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro ao processar requisição LLM: "+err.Error())
 		return
 	}
@@ -98,20 +132,34 @@ func (h *LLMHandler) ProcessLLMRequest(c *gin.Context) {
 // @Router /api/v1/llm/prompt/build [post]
 // @Security BearerAuth
 func (h *LLMHandler) BuildPrompt(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart :=
+
+		// Parse request body
+		time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.BuildPrompt"), zap.Any("result", nil), zap.Duration("duration", time.Since(
+
+			// Get prompt builder from service
+			__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.BuildPrompt"),
+
+		// Build prompt
+		zap.Any("params", __logParams))
 	var request dto.PromptBuilderDTO
 
-	// Parse request body
 	if err := c.ShouldBindJSON(&request); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.BuildPrompt"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
-	// Get prompt builder from service
 	promptBuilder := service.NewPromptBuilder()
 
-	// Build prompt
 	builtPrompt, err := promptBuilder.BuildSystemPrompt(request.Template, request.Variables)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.BuildPrompt"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Erro ao construir prompt: "+err.Error())
 		return
 	}
@@ -136,6 +184,12 @@ func (h *LLMHandler) BuildPrompt(c *gin.Context) {
 // @Router /api/v1/llm/providers/status [get]
 // @Security BearerAuth
 func (h *LLMHandler) GetProviderStatus(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.GetProviderStatus"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.GetProviderStatus"), zap.Any("params", __logParams))
 	availableProviders := h.llmService.GetAvailableProviders()
 	currentProvider := h.llmService.GetCurrentProvider()
 
@@ -163,6 +217,12 @@ func (h *LLMHandler) GetProviderStatus(c *gin.Context) {
 // @Router /api/v1/llm/providers/config [post]
 // @Security BearerAuth
 func (h *LLMHandler) ConfigureProvider(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.ConfigureProvider"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.ConfigureProvider"), zap.Any("params", __logParams))
 	providerName := c.Query("provider_name")
 	if providerName == "" {
 		response.BadRequest(c, "Nome do provedor é obrigatório")
@@ -171,11 +231,14 @@ func (h *LLMHandler) ConfigureProvider(c *gin.Context) {
 
 	var configRequest map[string]interface{}
 	if err := c.ShouldBindJSON(&configRequest); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ConfigureProvider"), zap.Error(
+
+			// Convert to LLM config
+			err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Configuração inválida: "+err.Error())
 		return
 	}
 
-	// Convert to LLM config
 	config := &model.LLMConfig{
 		Provider: model.LLMProvider(providerName),
 	}
@@ -193,6 +256,7 @@ func (h *LLMHandler) ConfigureProvider(c *gin.Context) {
 
 	// Add provider configuration
 	if err := h.llmService.AddProviderConfig(providerName, config); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ConfigureProvider"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Erro ao configurar provedor: "+err.Error())
 		return
 	}
@@ -217,32 +281,49 @@ func (h *LLMHandler) ConfigureProvider(c *gin.Context) {
 // @Router /api/v1/llm/providers/available [get]
 // @Security BearerAuth
 func (h *LLMHandler) GetAvailableProviders(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit",
+
+			// SwitchProvider godoc
+			// @Summary Switch active LLM provider
+			// @Description Switch to a different configured LLM provider
+			// @Tags LLM
+			// @Accept json
+			// @Produce json
+			// @Param provider_name query string true "Provider name to switch to"
+			// @Success 200 {object} response.Response{data=map[string]string}
+			// @Failure 400 {object} response.Response
+			// @Failure 401 {object} response.Response
+			// @Failure 500 {object} response.Response
+			// @Router /api/v1/llm/providers/switch [post]
+			// @Security BearerAuth
+			zap.String("func", "*LLMHandler.GetAvailableProviders"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.GetAvailableProviders"), zap.Any("params", __logParams))
 	providers := h.llmService.GetAvailableProviders()
 	response.OK(c, providers)
 }
 
-// SwitchProvider godoc
-// @Summary Switch active LLM provider
-// @Description Switch to a different configured LLM provider
-// @Tags LLM
-// @Accept json
-// @Produce json
-// @Param provider_name query string true "Provider name to switch to"
-// @Success 200 {object} response.Response{data=map[string]string}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /api/v1/llm/providers/switch [post]
-// @Security BearerAuth
 func (h *LLMHandler) SwitchProvider(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.SwitchProvider"),
+
+			// Switch provider
+			zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.SwitchProvider"), zap.Any("params", __logParams))
 	providerName := c.Query("provider_name")
 	if providerName == "" {
 		response.BadRequest(c, "Nome do provedor é obrigatório")
 		return
 	}
 
-	// Switch provider
 	if err := h.llmService.SetProvider(providerName); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.SwitchProvider"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Erro ao trocar provedor: "+err.Error())
 		return
 	}
@@ -271,6 +352,15 @@ func (h *LLMHandler) SwitchProvider(c *gin.Context) {
 // @Router /api/v1/llm/providers/test [post]
 // @Security BearerAuth
 func (h *LLMHandler) TestProvider(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*LLMHandler.TestProvider"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.TestProvider"),
+
+		// Create test request
+		zap.Any("params", __logParams))
 	providerName := c.Query("provider_name")
 	if providerName == "" {
 		providerName = h.llmService.GetCurrentProvider()
@@ -281,7 +371,6 @@ func (h *LLMHandler) TestProvider(c *gin.Context) {
 		testMessage = "Olá! Este é um teste de conectividade. Responda apenas: 'Teste OK'"
 	}
 
-	// Create test request
 	testRequest := &dto.LLMRequestDTO{
 		Messages: []dto.MessageDTO{
 			{
@@ -297,6 +386,7 @@ func (h *LLMHandler) TestProvider(c *gin.Context) {
 	ctx := c.Request.Context()
 	llmResponse, err := h.llmService.ProcessRequest(ctx, testRequest)
 	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*LLMHandler.TestProvider"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Teste de provedor falhou: "+err.Error())
 		return
 	}

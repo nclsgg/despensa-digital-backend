@@ -3,26 +3,40 @@ package repository_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/repository"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
+func setupTestDB(t *testing.T) (result0 *gorm.DB) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "setupTestDB"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "setupTestDB"), zap.Any("params", __logParams))
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
 	err = db.AutoMigrate(&model.Pantry{}, &model.PantryUser{})
 	assert.NoError(t, err)
-
-	return db
+	result0 = db
+	return
 }
 
 func TestCreateAndGetByID(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestCreateAndGetByID"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestCreateAndGetByID"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewPantryRepository(db)
 
@@ -43,6 +57,12 @@ func TestCreateAndGetByID(t *testing.T) {
 }
 
 func TestAddUserToPantryAndIsUserInPantry(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestAddUserToPantryAndIsUserInPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestAddUserToPantryAndIsUserInPantry"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewPantryRepository(db)
 
@@ -68,6 +88,12 @@ func TestAddUserToPantryAndIsUserInPantry(t *testing.T) {
 }
 
 func TestRemoveUserFromPantry(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRemoveUserFromPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRemoveUserFromPantry"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewPantryRepository(db)
 
@@ -91,6 +117,12 @@ func TestRemoveUserFromPantry(t *testing.T) {
 }
 
 func TestGetByUser(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestGetByUser"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestGetByUser"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewPantryRepository(db)
 
@@ -117,6 +149,12 @@ func TestGetByUser(t *testing.T) {
 }
 
 func TestListUsersInPantry(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestListUsersInPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestListUsersInPantry"), zap.Any("params", __logParams))
 	db := setupTestDB(t)
 	repo := repository.NewPantryRepository(db)
 	ctx := context.Background()

@@ -11,12 +11,22 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/user/domain"
 	userModel "github.com/nclsgg/despensa-digital/backend/internal/modules/user/model"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
+	"go.uber.org/zap"
 )
 
 // ProfileCompleteMiddleware verifies if user has completed their profile
-func ProfileCompleteMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func ProfileCompleteMiddleware() (result0 gin.HandlerFunc) {
+	__logParams := map[string]any{}
+	__logStart :=
+
 		// Skip for complete-profile endpoint itself
+		time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "ProfileCompleteMiddleware"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "ProfileCompleteMiddleware"), zap.Any("params", __logParams))
+	result0 = func(c *gin.Context) {
+
 		if strings.Contains(c.Request.URL.Path, "complete-profile") {
 			c.Next()
 			return
@@ -38,10 +48,17 @@ func ProfileCompleteMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+	return
 }
 
-func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) (result0 gin.HandlerFunc) {
+	__logParams := map[string]any{"cfg": cfg, "userRepo": userRepo}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "AuthMiddleware"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "AuthMiddleware"), zap.Any("params", __logParams))
+	result0 = func(c *gin.Context) {
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -54,8 +71,8 @@ func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) gin.Hand
 			return
 		}
 
-	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-	claims := &authModel.MyClaims{}
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		claims := &authModel.MyClaims{}
 
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -95,11 +112,12 @@ func AuthMiddleware(cfg *config.Config, userRepo domain.UserRepository) gin.Hand
 			return
 		}
 
-	c.Set("userID", claims.UserID) // Mudança de "user_id" para "userID" para consistência
-	c.Set("user", user)
-	c.Set("email", user.Email)
-	c.Set("role", user.Role)
+		c.Set("userID", claims.UserID) // Mudança de "user_id" para "userID" para consistência
+		c.Set("user", user)
+		c.Set("email", user.Email)
+		c.Set("role", user.Role)
 
-	c.Next()
+		c.Next()
 	}
+	return
 }
