@@ -83,6 +83,16 @@ func (p *OpenAIProvider) Chat(ctx context.Context, request *model.LLMRequest) (r
 	if request.Stream {
 		openAIRequest["stream"] = request.Stream
 	}
+	if format := strings.TrimSpace(request.ResponseFormat); format != "" {
+		payload := map[string]string{}
+		switch strings.ToLower(format) {
+		case "json", "json_object":
+			payload["type"] = "json_object"
+		default:
+			payload["type"] = format
+		}
+		openAIRequest["response_format"] = payload
+	}
 
 	// Serializa a requisição
 	jsonData, err := json.Marshal(openAIRequest)

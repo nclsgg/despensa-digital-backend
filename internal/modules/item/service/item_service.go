@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,6 +53,73 @@ func formatTimePointer(t *time.Time) (result0 *string) {
 	return
 }
 
+func sanitizeUnit(unit string) (result0 string) {
+	result0 = strings.ToLower(strings.TrimSpace(unit))
+	return
+}
+
+func requiresPriceQuantity(unit string) (result0 bool) {
+	switch sanitizeUnit(unit) {
+	case "kg", "g", "grama", "gramas", "l", "litro", "ml", "mililitro", "pacote", "pct", "pac", "cx", "caixa", "sache", "sachê", "garrafa", "lata":
+		result0 = true
+	default:
+		result0 = false
+	}
+	return
+}
+
+func normalizePriceQuantity(value float64, unit string) (result0 float64) {
+	__logParams := map[string]any{"value": value, "unit": unit}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "normalizePriceQuantity"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "normalizePriceQuantity"), zap.Any("params", __logParams))
+	if !requiresPriceQuantity(unit) {
+		result0 = 1
+		return
+	}
+	if value <= 0 {
+		result0 = 1
+		return
+	}
+	result0 = value
+	return
+}
+
+func deriveStoredPricePerUnit(inputPrice float64, priceQuantity float64, unit string) (result0 float64) {
+	__logParams := map[string]any{"inputPrice": inputPrice, "priceQuantity": priceQuantity, "unit": unit}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "deriveStoredPricePerUnit"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "deriveStoredPricePerUnit"), zap.Any("params", __logParams))
+	if inputPrice < 0 {
+		inputPrice = 0
+	}
+	if !requiresPriceQuantity(unit) || priceQuantity <= 0 {
+		result0 = inputPrice
+		return
+	}
+	result0 = inputPrice / priceQuantity
+	return
+}
+
+func computeDisplayPrice(storedPricePerUnit float64, priceQuantity float64, unit string) (result0 float64) {
+	__logParams := map[string]any{"storedPricePerUnit": storedPricePerUnit, "priceQuantity": priceQuantity, "unit": unit}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "computeDisplayPrice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "computeDisplayPrice"), zap.Any("params", __logParams))
+	if !requiresPriceQuantity(unit) || priceQuantity <= 0 {
+		result0 = storedPricePerUnit
+		return
+	}
+	result0 = storedPricePerUnit * priceQuantity
+	return
+}
+
 func toItemResponse(item *model.Item) (result0 *dto.ItemResponse) {
 	__logParams := map[string]any{"item": item}
 	__logStart := time.Now()
@@ -64,6 +132,8 @@ func toItemResponse(item *model.Item) (result0 *dto.ItemResponse) {
 		return
 	}
 
+	item.PriceQuantity = normalizePriceQuantity(item.PriceQuantity, item.Unit)
+	displayPrice := computeDisplayPrice(item.PricePerUnit, item.PriceQuantity, item.Unit)
 	item.TotalPrice = item.Quantity * item.PricePerUnit
 
 	var categoryID *string
@@ -72,18 +142,19 @@ func toItemResponse(item *model.Item) (result0 *dto.ItemResponse) {
 		categoryID = &id
 	}
 	result0 = &dto.ItemResponse{
-		ID:           item.ID.String(),
-		PantryID:     item.PantryID.String(),
-		AddedBy:      item.AddedBy.String(),
-		Name:         item.Name,
-		Quantity:     item.Quantity,
-		Unit:         item.Unit,
-		PricePerUnit: item.PricePerUnit,
-		TotalPrice:   item.TotalPrice,
-		CategoryID:   categoryID,
-		ExpiresAt:    formatTimePointer(item.ExpiresAt),
-		CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt:    item.UpdatedAt.UTC().Format(time.RFC3339),
+		ID:            item.ID.String(),
+		PantryID:      item.PantryID.String(),
+		AddedBy:       item.AddedBy.String(),
+		Name:          item.Name,
+		Quantity:      item.Quantity,
+		Unit:          item.Unit,
+		PricePerUnit:  displayPrice,
+		PriceQuantity: item.PriceQuantity,
+		TotalPrice:    item.TotalPrice,
+		CategoryID:    categoryID,
+		ExpiresAt:     formatTimePointer(item.ExpiresAt),
+		CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 	return
 }
@@ -148,18 +219,21 @@ func (s *itemService) Create(ctx context.Context, input dto.CreateItemDTO, userI
 	}
 
 	now := time.Now().UTC()
+	priceQuantity := normalizePriceQuantity(input.PriceQuantity, input.Unit)
+	storedPrice := deriveStoredPricePerUnit(input.PricePerUnit, priceQuantity, input.Unit)
 	item := &model.Item{
-		ID:           uuid.New(),
-		PantryID:     pantryID,
-		AddedBy:      userID,
-		Name:         input.Name,
-		Quantity:     input.Quantity,
-		PricePerUnit: input.PricePerUnit,
-		Unit:         input.Unit,
-		CategoryID:   nil,
-		ExpiresAt:    parseTimePointer(input.ExpiresAt),
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:            uuid.New(),
+		PantryID:      pantryID,
+		AddedBy:       userID,
+		Name:          input.Name,
+		Quantity:      input.Quantity,
+		PricePerUnit:  storedPrice,
+		PriceQuantity: priceQuantity,
+		Unit:          input.Unit,
+		CategoryID:    nil,
+		ExpiresAt:     parseTimePointer(input.ExpiresAt),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	if input.CategoryID != nil {
@@ -209,6 +283,14 @@ func (s *itemService) Update(ctx context.Context, id uuid.UUID, input dto.Update
 	}
 
 	item.ApplyUpdate(input)
+	item.PriceQuantity = normalizePriceQuantity(item.PriceQuantity, item.Unit)
+	if input.PricePerUnit != nil {
+		item.PricePerUnit = deriveStoredPricePerUnit(*input.PricePerUnit, item.PriceQuantity, item.Unit)
+	} else if input.PriceQuantity != nil && requiresPriceQuantity(item.Unit) {
+		// Re-derive stored price to preserve the original display amount when only price quantity changes.
+		displayPrice := computeDisplayPrice(item.PricePerUnit, item.PriceQuantity, item.Unit)
+		item.PricePerUnit = deriveStoredPricePerUnit(displayPrice, item.PriceQuantity, item.Unit)
+	}
 	item.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(ctx, item); err != nil {

@@ -1,22 +1,24 @@
 package dto
 
 type CreateItemDTO struct {
-	PantryID     string  `json:"pantry_id" binding:"required,uuid"`
-	Name         string  `json:"name" binding:"required"`
-	Quantity     float64 `json:"quantity" binding:"required,gte=0"`
-	PricePerUnit float64 `json:"price_per_unit" binding:"required,gte=0"`
-	Unit         string  `json:"unit" binding:"required"`
-	CategoryID   *string `json:"category_id,omitempty"`
-	ExpiresAt    string  `json:"expires_at,omitempty"`
+	PantryID      string  `json:"pantry_id" binding:"required,uuid"`
+	Name          string  `json:"name" binding:"required"`
+	Quantity      float64 `json:"quantity" binding:"required,gte=0"`
+	PricePerUnit  float64 `json:"price_per_unit" binding:"required,gte=0"`
+	PriceQuantity float64 `json:"price_quantity" binding:"omitempty,min=0.001"`
+	Unit          string  `json:"unit" binding:"required"`
+	CategoryID    *string `json:"category_id,omitempty"`
+	ExpiresAt     string  `json:"expires_at,omitempty"`
 }
 
 type UpdateItemDTO struct {
-	Name         *string  `json:"name,omitempty"`
-	Quantity     *float64 `json:"quantity,omitempty"`
-	PricePerUnit *float64 `json:"price_per_unit,omitempty"`
-	Unit         *string  `json:"unit,omitempty"`
-	CategoryID   *string  `json:"category_id,omitempty"`
-	ExpiresAt    string   `json:"expires_at,omitempty"`
+	Name          *string  `json:"name,omitempty"`
+	Quantity      *float64 `json:"quantity,omitempty"`
+	PricePerUnit  *float64 `json:"price_per_unit,omitempty"`
+	PriceQuantity *float64 `json:"price_quantity,omitempty"`
+	Unit          *string  `json:"unit,omitempty"`
+	CategoryID    *string  `json:"category_id,omitempty"`
+	ExpiresAt     string   `json:"expires_at,omitempty"`
 }
 
 type ItemFilterDTO struct {
@@ -30,16 +32,17 @@ type ItemFilterDTO struct {
 }
 
 type ItemResponse struct {
-	ID           string  `json:"id"`
-	PantryID     string  `json:"pantry_id"`
-	AddedBy      string  `json:"added_by"`
-	Name         string  `json:"name"`
-	Quantity     float64 `json:"quantity"`
-	Unit         string  `json:"unit"`
-	PricePerUnit float64 `json:"price_per_unit"`
-	TotalPrice   float64 `json:"total_price"`
-	CategoryID   *string `json:"category_id,omitempty"`
-	ExpiresAt    *string `json:"expires_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID            string  `json:"id"`
+	PantryID      string  `json:"pantry_id"`
+	AddedBy       string  `json:"added_by"`
+	Name          string  `json:"name"`
+	Quantity      float64 `json:"quantity"`
+	Unit          string  `json:"unit"`
+	PricePerUnit  float64 `json:"price_per_unit"`
+	PriceQuantity float64 `json:"price_quantity"`
+	TotalPrice    float64 `json:"total_price"`
+	CategoryID    *string `json:"category_id,omitempty"`
+	ExpiresAt     *string `json:"expires_at,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }

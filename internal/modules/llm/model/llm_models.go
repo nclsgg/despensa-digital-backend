@@ -29,6 +29,7 @@ type LLMRequest struct {
 	Model            string            `json:"model,omitempty"`
 	Stream           bool              `json:"stream,omitempty"`
 	Metadata         map[string]string `json:"metadata,omitempty"`
+	ResponseFormat   string            `json:"response_format,omitempty"`
 }
 
 // LLMResponse representa a resposta do LLM

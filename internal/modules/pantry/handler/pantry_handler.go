@@ -173,6 +173,7 @@ func (h *pantryHandler) GetPantry(c *gin.Context) {
 			Quantity:       item.Quantity,
 			Unit:           item.Unit,
 			PricePerUnit:   item.PricePerUnit,
+			PriceQuantity:  item.PriceQuantity,
 			TotalPrice:     item.TotalPrice,
 			AddedBy:        item.AddedBy,
 			CategoryID:     item.CategoryID,

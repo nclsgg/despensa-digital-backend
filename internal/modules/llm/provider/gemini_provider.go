@@ -75,6 +75,20 @@ func (p *GeminiProvider) Chat(ctx context.Context, request *model.LLMRequest) (r
 	if len(request.Stop) > 0 {
 		generationConfig["stopSequences"] = request.Stop
 	}
+	if format := strings.TrimSpace(request.ResponseFormat); format != "" {
+		mimeType := format
+		switch strings.ToLower(format) {
+		case "json", "json_object":
+			mimeType = "application/json"
+		case "text", "plain", "text/plain":
+			mimeType = "text/plain"
+		default:
+			if !strings.Contains(format, "/") {
+				mimeType = "application/" + strings.ToLower(format)
+			}
+		}
+		generationConfig["responseMimeType"] = mimeType
+	}
 
 	if len(generationConfig) > 0 {
 		geminiRequest["generationConfig"] = generationConfig

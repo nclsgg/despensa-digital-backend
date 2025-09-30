@@ -29,6 +29,7 @@ type PantryItemResponse struct {
 	Quantity       float64 `json:"quantity"`
 	Unit           string  `json:"unit"`
 	PricePerUnit   float64 `json:"price_per_unit"`
+	PriceQuantity  float64 `json:"price_quantity"`
 	TotalPrice     float64 `json:"total_price"`
 	AddedBy        string  `json:"added_by"`
 	CategoryID     *string `json:"category_id,omitempty"`

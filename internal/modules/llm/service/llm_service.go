@@ -308,6 +308,9 @@ func (s *LLMServiceImpl) GenerateText(ctx context.Context, prompt string, option
 	if topP, ok := options["top_p"].(float64); ok {
 		request.TopP = topP
 	}
+	if responseFormat, ok := options["response_format"].(string); ok && responseFormat != "" {
+		request.ResponseFormat = responseFormat
+	}
 
 	// Obtém o provedor ativo
 	provider, err := s.getActiveProvider()

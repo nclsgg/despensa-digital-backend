@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	itemDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
+	itemModel "github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	llmDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/llm/domain"
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
@@ -47,7 +48,6 @@ type AIShoppingItem struct {
 	Unit           string  `json:"unit"`
 	EstimatedPrice float64 `json:"estimated_price"`
 	Category       string  `json:"category"`
-	Brand          string  `json:"brand"`
 	Priority       int     `json:"priority"`
 	Reason         string  `json:"reason"`
 }
@@ -56,6 +56,12 @@ type AIShoppingListResponse struct {
 	Items          []AIShoppingItem `json:"items"`
 	Reasoning      string           `json:"reasoning"`
 	EstimatedTotal float64          `json:"estimated_total"`
+}
+
+type shoppingPreferences struct {
+	HouseholdSize       int
+	MonthlyIncome       float64
+	DietaryRestrictions []string
 }
 
 type shoppingListService struct {
@@ -96,13 +102,25 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("params", __logParams))
+
+	preferences, err := s.resolvePreferences(ctx, userID, input.Preferences)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+
 	shoppingList := &shoppingModel.ShoppingList{
-		UserID:      userID,
-		PantryID:    input.PantryID,
-		Name:        input.Name,
-		TotalBudget: input.TotalBudget,
-		Status:      "pending",
-		GeneratedBy: "manual",
+		UserID:              userID,
+		PantryID:            input.PantryID,
+		Name:                input.Name,
+		TotalBudget:         input.TotalBudget,
+		Status:              "pending",
+		GeneratedBy:         "manual",
+		HouseholdSize:       preferences.HouseholdSize,
+		MonthlyIncome:       preferences.MonthlyIncome,
+		DietaryRestrictions: shoppingModel.StringArray(normalizeStringSlice(preferences.DietaryRestrictions)),
 	}
 
 	if input.PantryID != nil {
@@ -120,20 +138,18 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 		}
 	}
 
-	var estimatedCost float64
 	for _, itemDto := range input.Items {
-		estimatedCost += itemDto.EstimatedPrice * itemDto.Quantity
-	}
-	shoppingList.EstimatedCost = estimatedCost
-
-	for _, itemDto := range input.Items {
+		priceQuantity := itemDto.PriceQuantity
+		if priceQuantity <= 0 {
+			priceQuantity = 1
+		}
 		item := &shoppingModel.ShoppingListItem{
 			Name:           itemDto.Name,
 			Quantity:       itemDto.Quantity,
 			Unit:           itemDto.Unit,
 			EstimatedPrice: itemDto.EstimatedPrice,
+			PriceQuantity:  priceQuantity,
 			Category:       itemDto.Category,
-			Brand:          itemDto.Brand,
 			Priority:       itemDto.Priority,
 			Notes:          itemDto.Notes,
 			Source:         "manual",
@@ -141,8 +157,15 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 		if item.Priority == 0 {
 			item.Priority = 3
 		}
+		if itemDto.PantryItemID != nil {
+			item.PantryItemID = itemDto.PantryItemID
+		}
 		shoppingList.Items = append(shoppingList.Items, *item)
 	}
+
+	estimatedTotal, actualTotal := calculateListTotals(shoppingList.Items)
+	shoppingList.EstimatedCost = estimatedTotal
+	shoppingList.ActualCost = actualTotal
 
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
@@ -247,6 +270,7 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 			GeneratedBy:    sl.GeneratedBy,
 			ItemCount:      itemCount,
 			PurchasedCount: purchasedCount,
+			Preferences:    convertPreferencesToDTO(sl),
 			CreatedAt:      sl.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      sl.UpdatedAt.Format(time.RFC3339),
 		})
@@ -285,14 +309,44 @@ func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uui
 	if input.Name != nil {
 		shoppingList.Name = *input.Name
 	}
-	if input.Status != nil {
-		shoppingList.Status = *input.Status
-	}
 	if input.TotalBudget != nil {
 		shoppingList.TotalBudget = *input.TotalBudget
 	}
+
+	if input.Preferences != nil {
+		prefs := shoppingPreferences{
+			HouseholdSize:       shoppingList.HouseholdSize,
+			MonthlyIncome:       shoppingList.MonthlyIncome,
+			DietaryRestrictions: toShoppingListStringSlice(shoppingList.DietaryRestrictions),
+		}
+		prefs = applyPreferenceOverrides(prefs, input.Preferences)
+		shoppingList.HouseholdSize = prefs.HouseholdSize
+		shoppingList.MonthlyIncome = prefs.MonthlyIncome
+		shoppingList.DietaryRestrictions = shoppingModel.StringArray(normalizeStringSlice(prefs.DietaryRestrictions))
+	}
+
+	checkoutPerformed := false
+	checkoutCost := 0.0
+	if input.Status != nil {
+		targetStatus := *input.Status
+		if targetStatus == "completed" && shoppingList.Status != "completed" {
+			cost, err := s.performCheckout(ctx, userID, shoppingList)
+			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+				result0 = nil
+				result1 = err
+				return
+			}
+			checkoutPerformed = true
+			checkoutCost = cost
+		}
+		shoppingList.Status = targetStatus
+	}
+
 	if input.ActualCost != nil {
 		shoppingList.ActualCost = *input.ActualCost
+	} else if checkoutPerformed {
+		shoppingList.ActualCost = checkoutCost
 	}
 
 	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
@@ -377,10 +431,14 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 		return
 	}
 
-	var targetItem *shoppingModel.ShoppingListItem
+	var (
+		targetItem  *shoppingModel.ShoppingListItem
+		targetIndex = -1
+	)
 	for idx := range shoppingList.Items {
 		if shoppingList.Items[idx].ID == itemID {
 			targetItem = &shoppingList.Items[idx]
+			targetIndex = idx
 			break
 		}
 	}
@@ -389,6 +447,10 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 		result0 = nil
 		result1 = domain.ErrItemNotFound
 		return
+	}
+
+	if targetItem.PriceQuantity <= 0 {
+		targetItem.PriceQuantity = 1
 	}
 
 	if input.Name != nil {
@@ -400,14 +462,21 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	if input.Unit != nil {
 		targetItem.Unit = *input.Unit
 	}
+	if input.EstimatedPrice != nil {
+		targetItem.EstimatedPrice = *input.EstimatedPrice
+	}
+	if input.PriceQuantity != nil {
+		priceQuantity := *input.PriceQuantity
+		if priceQuantity <= 0 {
+			priceQuantity = 1
+		}
+		targetItem.PriceQuantity = priceQuantity
+	}
 	if input.ActualPrice != nil {
 		targetItem.ActualPrice = *input.ActualPrice
 	}
 	if input.Category != nil {
 		targetItem.Category = *input.Category
-	}
-	if input.Brand != nil {
-		targetItem.Brand = *input.Brand
 	}
 	if input.Priority != nil {
 		targetItem.Priority = *input.Priority
@@ -418,11 +487,29 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	if input.Notes != nil {
 		targetItem.Notes = *input.Notes
 	}
+	if input.PantryItemID != nil {
+		targetItem.PantryItemID = input.PantryItemID
+	}
 
 	if err := s.shoppingListRepo.UpdateItem(ctx, targetItem); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
 		result1 = fmt.Errorf("update shopping list item: %w", err)
+		return
+	}
+
+	if targetIndex >= 0 {
+		shoppingList.Items[targetIndex] = *targetItem
+	}
+
+	estimatedTotal, actualTotal := calculateListTotals(shoppingList.Items)
+	shoppingList.EstimatedCost = estimatedTotal
+	shoppingList.ActualCost = actualTotal
+
+	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("update shopping list totals: %w", err)
 		return
 	}
 
@@ -544,7 +631,15 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 		includeBasics = *input.IncludeBasics
 	}
 
-	prompt, err := s.buildShoppingListPrompt(input, profile, pantryInsights, budget, includeBasics)
+	preferences, err := s.resolvePreferences(ctx, userID, input.Preferences)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+
+	prompt, err := s.buildShoppingListPrompt(input, preferences, profile, pantryInsights, budget, includeBasics)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
@@ -564,7 +659,7 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 		return
 	}
 
-	shoppingList, err := s.parseAIResponse(userID, input, budget, llmResponse.Response)
+	shoppingList, err := s.parseAIResponse(userID, input, budget, preferences, llmResponse.Response)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
@@ -597,6 +692,388 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 }
 
 // Helper methods
+
+func (s *shoppingListService) resolvePreferences(ctx context.Context, userID uuid.UUID, overrides *dto.ShoppingListPreferencesOverrideDTO) (result0 shoppingPreferences, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "overrides": overrides}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.resolvePreferences"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.resolvePreferences"), zap.Any("params", __logParams))
+
+	prefs := shoppingPreferences{
+		HouseholdSize:       1,
+		MonthlyIncome:       0,
+		DietaryRestrictions: []string{},
+	}
+
+	profile, err := s.profileRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			result0 = applyPreferenceOverrides(prefs, overrides)
+			result1 = nil
+			return
+		}
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.resolvePreferences"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = shoppingPreferences{}
+		result1 = fmt.Errorf("get profile: %w", err)
+		return
+	}
+
+	if profile != nil {
+		prefs.HouseholdSize = profile.HouseholdSize
+		prefs.MonthlyIncome = profile.MonthlyIncome
+		prefs.DietaryRestrictions = toStringSlice(profile.DietaryRestrictions)
+	}
+
+	result0 = applyPreferenceOverrides(prefs, overrides)
+	result1 = nil
+	return
+}
+
+func applyPreferenceOverrides(base shoppingPreferences, overrides *dto.ShoppingListPreferencesOverrideDTO) (result0 shoppingPreferences) {
+	__logParams := map[string]any{"base": base, "overrides": overrides}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "applyPreferenceOverrides"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "applyPreferenceOverrides"), zap.Any("params", __logParams))
+	result0 = base
+	if overrides == nil {
+		return
+	}
+	if overrides.HouseholdSize != nil {
+		result0.HouseholdSize = *overrides.HouseholdSize
+	}
+	if overrides.MonthlyIncome != nil {
+		result0.MonthlyIncome = *overrides.MonthlyIncome
+	}
+	if overrides.DietaryRestrictions != nil {
+		result0.DietaryRestrictions = normalizeStringSlice(overrides.DietaryRestrictions)
+	}
+	return
+}
+
+func convertPreferencesToDTO(sl *shoppingModel.ShoppingList) (result0 dto.ShoppingListPreferencesDTO) {
+	__logParams := map[string]any{"sl": sl}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "convertPreferencesToDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "convertPreferencesToDTO"), zap.Any("params", __logParams))
+	result0 = dto.ShoppingListPreferencesDTO{
+		HouseholdSize:       sl.HouseholdSize,
+		MonthlyIncome:       sl.MonthlyIncome,
+		DietaryRestrictions: toShoppingListStringSlice(sl.DietaryRestrictions),
+	}
+	return
+}
+
+func (s *shoppingListService) performCheckout(ctx context.Context, userID uuid.UUID, sl *shoppingModel.ShoppingList) (result0 float64, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "sl": sl}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.performCheckout"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.performCheckout"), zap.Any("params", __logParams))
+
+	actualCost := 0.0
+
+	normalizeName := func(name string) string {
+		return strings.ToLower(strings.TrimSpace(name))
+	}
+
+	var pantryItemsByID map[uuid.UUID]*itemModel.Item
+	var pantryItemsByName map[string]*itemModel.Item
+
+	if sl.PantryID != nil && s.itemRepo != nil {
+		items, err := s.itemRepo.ListByPantryID(ctx, *sl.PantryID)
+		if err != nil {
+			zap.L().Error("function.error", zap.String("func", "*shoppingListService.performCheckout"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = 0
+			result1 = fmt.Errorf("list pantry items: %w", err)
+			return
+		}
+		pantryItemsByID = make(map[uuid.UUID]*itemModel.Item, len(items))
+		pantryItemsByName = make(map[string]*itemModel.Item, len(items))
+		for _, pantryItem := range items {
+			pantryItemsByID[pantryItem.ID] = pantryItem
+			pantryItemsByName[normalizeName(pantryItem.Name)] = pantryItem
+		}
+	}
+
+	for idx := range sl.Items {
+		item := &sl.Items[idx]
+		if !item.Purchased {
+			continue
+		}
+
+		priceQuantity := normalizePriceQuantity(item.PriceQuantity)
+		basePrice := resolveUnitPrice(item.ActualPrice, item.EstimatedPrice)
+		quantityFactor := item.Quantity / priceQuantity
+		if quantityFactor < 0 {
+			quantityFactor = 0
+		}
+		item.ActualPrice = basePrice
+		actualCost += basePrice * quantityFactor
+
+		perUnitPrice := 0.0
+		if priceQuantity > 0 {
+			perUnitPrice = basePrice / priceQuantity
+		}
+
+		var matchedPantryItem *itemModel.Item
+		if sl.PantryID != nil && s.itemRepo != nil {
+			if item.PantryItemID != nil {
+				if pantryItemsByID != nil {
+					if cached, ok := pantryItemsByID[*item.PantryItemID]; ok {
+						matchedPantryItem = cached
+					}
+				}
+				if matchedPantryItem == nil {
+					found, err := s.itemRepo.FindByID(ctx, *item.PantryItemID)
+					if err == nil {
+						matchedPantryItem = found
+						if pantryItemsByID != nil {
+							pantryItemsByID[found.ID] = found
+							pantryItemsByName[normalizeName(found.Name)] = found
+						}
+					}
+				}
+				if matchedPantryItem != nil && matchedPantryItem.ID == uuid.Nil {
+					matchedPantryItem = nil
+				}
+			} else if pantryItemsByName != nil {
+				if candidate, ok := pantryItemsByName[normalizeName(item.Name)]; ok {
+					matchedPantryItem = candidate
+					copied := candidate.ID
+					item.PantryItemID = &copied
+				}
+			}
+			if matchedPantryItem != nil && matchedPantryItem.ID == uuid.Nil {
+				matchedPantryItem = nil
+			}
+
+			if matchedPantryItem != nil {
+				matchedPantryItem.Quantity += item.Quantity
+				if perUnitPrice > 0 {
+					matchedPantryItem.PricePerUnit = perUnitPrice
+					matchedPantryItem.PriceQuantity = priceQuantity
+				}
+				if matchedPantryItem.Unit == "" {
+					matchedPantryItem.Unit = item.Unit
+				}
+				if err := s.itemRepo.Update(ctx, matchedPantryItem); err != nil {
+					zap.L().Error("function.error", zap.String("func", "*shoppingListService.performCheckout"), zap.Error(err), zap.Any("params", __logParams))
+					result0 = 0
+					result1 = fmt.Errorf("update pantry item: %w", err)
+					return
+				}
+				if pantryItemsByID != nil {
+					pantryItemsByID[matchedPantryItem.ID] = matchedPantryItem
+					pantryItemsByName[normalizeName(matchedPantryItem.Name)] = matchedPantryItem
+				}
+			} else if sl.PantryID != nil {
+				newItem := &itemModel.Item{
+					ID:            uuid.New(),
+					PantryID:      *sl.PantryID,
+					AddedBy:       userID,
+					Name:          item.Name,
+					Quantity:      item.Quantity,
+					PricePerUnit:  perUnitPrice,
+					PriceQuantity: priceQuantity,
+					Unit:          item.Unit,
+				}
+				if err := s.itemRepo.Create(ctx, newItem); err != nil {
+					zap.L().Error("function.error", zap.String("func", "*shoppingListService.performCheckout"), zap.Error(err), zap.Any("params", __logParams))
+					result0 = 0
+					result1 = fmt.Errorf("create pantry item: %w", err)
+					return
+				}
+				copied := newItem.ID
+				item.PantryItemID = &copied
+				if pantryItemsByID != nil {
+					pantryItemsByID[newItem.ID] = newItem
+					pantryItemsByName[normalizeName(newItem.Name)] = newItem
+				}
+			}
+		}
+
+		if err := s.shoppingListRepo.UpdateItem(ctx, item); err != nil {
+			zap.L().Error("function.error", zap.String("func", "*shoppingListService.performCheckout"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = 0
+			result1 = fmt.Errorf("update shopping list item: %w", err)
+			return
+		}
+	}
+
+	result0 = actualCost
+	result1 = nil
+	return
+}
+
+func resolveUnitPrice(actualPrice, estimatedPrice float64) (result0 float64) {
+	__logParams := map[string]any{"actualPrice": actualPrice, "estimatedPrice": estimatedPrice}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "resolveUnitPrice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "resolveUnitPrice"), zap.Any("params", __logParams))
+	price := actualPrice
+	if price <= 0 {
+		price = estimatedPrice
+	}
+	if price < 0 {
+		price = 0
+	}
+	result0 = price
+	return
+}
+
+func normalizePriceQuantity(value float64) (result0 float64) {
+	__logParams := map[string]any{"value": value}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "normalizePriceQuantity"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "normalizePriceQuantity"), zap.Any("params", __logParams))
+	if value <= 0 {
+		result0 = 1
+		return
+	}
+	result0 = value
+	return
+}
+
+func clampNonNegative(value float64) (result0 float64) {
+	if value < 0 {
+		result0 = 0
+		return
+	}
+	result0 = value
+	return
+}
+
+func sanitizeUnit(unit string) (result0 string) {
+	result0 = strings.ToLower(strings.TrimSpace(unit))
+	return
+}
+
+func requiresPriceQuantity(unit string) (result0 bool) {
+	switch sanitizeUnit(unit) {
+	case "kg", "g", "grama", "gramas", "l", "litro", "ml", "mililitro", "pacote", "pct", "pac", "cx", "caixa", "garrafa", "lata", "sache", "sachê":
+		result0 = true
+	default:
+		result0 = false
+	}
+	return
+}
+
+func deriveAIPriceQuantity(quantity float64, unit string) (result0 float64) {
+	normalizedQuantity := clampNonNegative(quantity)
+	if !requiresPriceQuantity(unit) {
+		result0 = 1
+		return
+	}
+	if normalizedQuantity <= 0 {
+		result0 = 1
+		return
+	}
+	result0 = normalizedQuantity
+	return
+}
+
+func calculateListTotals(items []shoppingModel.ShoppingListItem) (result0 float64, result1 float64) {
+	__logParams := map[string]any{"items": items}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "calculateListTotals"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "calculateListTotals"), zap.Any("params", __logParams))
+	for _, item := range items {
+		priceQuantity := normalizePriceQuantity(item.PriceQuantity)
+		quantityFactor := item.Quantity / priceQuantity
+		if quantityFactor < 0 {
+			quantityFactor = 0
+		}
+		result0 += item.EstimatedPrice * quantityFactor
+		if item.Purchased {
+			basePrice := resolveUnitPrice(item.ActualPrice, item.EstimatedPrice)
+			result1 += basePrice * quantityFactor
+		}
+	}
+	return
+}
+
+func normalizeStringSlice(values []string) (result0 []string) {
+	__logParams := map[string]any{"values": values}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "normalizeStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "normalizeStringSlice"), zap.Any("params", __logParams))
+	if values == nil {
+		result0 = []string{}
+		return
+	}
+	seen := make(map[string]struct{})
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	result0 = normalized
+	return
+}
+
+func toStringSlice(values profileModel.StringArray) (result0 []string) {
+	__logParams := map[string]any{"values": values}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "toStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "toStringSlice"), zap.Any("params", __logParams))
+	if values == nil {
+		result0 = []string{}
+		return
+	}
+	result0 = append([]string(nil), values...)
+	return
+}
+
+func toShoppingListStringSlice(values shoppingModel.StringArray) (result0 []string) {
+	__logParams := map[string]any{"values": values}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "toShoppingListStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "toShoppingListStringSlice"), zap.Any("params", __logParams))
+	if values == nil {
+		result0 = []string{}
+		return
+	}
+	result0 = append([]string(nil), values...)
+	return
+}
+
+func normalizeShoppingListStringSlice(values []string) (result0 []string) {
+	__logParams := map[string]any{"values": values}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "normalizeShoppingListStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "normalizeShoppingListStringSlice"), zap.Any("params", __logParams))
+	result0 = normalizeStringSlice(values)
+	return
+}
 
 func (s *shoppingListService) determineBudget(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile) (result0 float64) {
 	__logParams := map[string]any{"s": s, "input": input, "profile": profile}
@@ -683,6 +1160,7 @@ func (s *shoppingListService) convertToResponseDTO(ctx context.Context, sl *shop
 		ActualCost:    sl.ActualCost,
 		GeneratedBy:   sl.GeneratedBy,
 		Items:         items,
+		Preferences:   convertPreferencesToDTO(sl),
 		CreatedAt:     sl.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     sl.UpdatedAt.Format(time.RFC3339),
 	}
@@ -713,6 +1191,13 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.convertItemToResponseDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.convertItemToResponseDTO"), zap.Any("params", __logParams))
+	var pantryItemID *string
+	if item.PantryItemID != nil {
+		id := item.PantryItemID.String()
+		pantryItemID = &id
+	}
+	priceQuantity := normalizePriceQuantity(item.PriceQuantity)
+	item.PriceQuantity = priceQuantity
 	result0 = &dto.ShoppingListItemResponseDTO{
 		ID:             item.ID.String(),
 		ShoppingListID: item.ShoppingListID.String(),
@@ -720,13 +1205,14 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		Quantity:       item.Quantity,
 		Unit:           item.Unit,
 		EstimatedPrice: item.EstimatedPrice,
+		PriceQuantity:  priceQuantity,
 		ActualPrice:    item.ActualPrice,
 		Category:       item.Category,
-		Brand:          item.Brand,
 		Priority:       item.Priority,
 		Purchased:      item.Purchased,
 		Notes:          item.Notes,
 		Source:         item.Source,
+		PantryItemID:   pantryItemID,
 		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      item.UpdatedAt.Format(time.RFC3339),
 	}
@@ -782,8 +1268,8 @@ func (s *shoppingListService) analyzePantryHistory(ctx context.Context, pantries
 	return
 }
 
-func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, profile *profileModel.Profile, insights *PantryInsights, budget float64, includeBasics bool) (result0 string, result1 error) {
-	__logParams := map[string]any{"s": s, "input": input, "profile": profile, "insights": insights, "budget": budget, "includeBasics": includeBasics}
+func (s *shoppingListService) buildShoppingListPrompt(input dto.GenerateAIShoppingListDTO, preferences shoppingPreferences, profile *profileModel.Profile, insights *PantryInsights, budget float64, includeBasics bool) (result0 string, result1 error) {
+	__logParams := map[string]any{"s": s, "input": input, "preferences": preferences, "profile": profile, "insights": insights, "budget": budget, "includeBasics": includeBasics}
 	__logStart := time.Now()
 	defer func() {
 		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.buildShoppingListPrompt"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
@@ -804,47 +1290,23 @@ CONTEXTO DO USUÁRIO:
 
 	if input.PeopleCount != nil {
 		prompt += fmt.Sprintf("- Número de pessoas atendidas: %d\n", *input.PeopleCount)
-	} else if profile != nil && profile.HouseholdSize > 0 {
-		prompt += fmt.Sprintf("- Número de pessoas atendidas: %d\n", profile.HouseholdSize)
+	} else if preferences.HouseholdSize > 0 {
+		prompt += fmt.Sprintf("- Número de pessoas atendidas: %d\n", preferences.HouseholdSize)
+	}
+
+	prompt += fmt.Sprintf(`
+PREFERÊNCIAS DO USUÁRIO:
+- Tamanho da família: %d pessoas
+- Renda mensal informada: R$ %.2f
+`, preferences.HouseholdSize, preferences.MonthlyIncome)
+
+	if len(preferences.DietaryRestrictions) > 0 {
+		prompt += fmt.Sprintf("- Restrições alimentares: %s\n", strings.Join(preferences.DietaryRestrictions, ", "))
 	}
 
 	if profile != nil {
-		prompt += fmt.Sprintf(`
-PERFIL DO USUÁRIO:
-- Renda mensal: R$ %.2f
-- Orçamento preferido: R$ %.2f
-- Frequência de compras: %s
-`, profile.MonthlyIncome, profile.PreferredBudget, profile.ShoppingFrequency)
-
-		if len(profile.DietaryRestrictions) > 0 {
-			prompt += fmt.Sprintf("- Restrições alimentares: %s\n", strings.Join(profile.DietaryRestrictions, ", "))
-		}
-	}
-
-	preferredBrands := make([]string, 0)
-	if profile != nil {
-		preferredBrands = append(preferredBrands, profile.PreferredBrands...)
-	}
-	if len(input.PreferredBrands) > 0 {
-		preferredBrands = append(preferredBrands, input.PreferredBrands...)
-	}
-	if len(preferredBrands) > 0 {
-		brandSet := make(map[string]struct{})
-		dedup := make([]string, 0, len(preferredBrands))
-		for _, brand := range preferredBrands {
-			brand = strings.TrimSpace(brand)
-			if brand == "" {
-				continue
-			}
-			if _, exists := brandSet[brand]; exists {
-				continue
-			}
-			brandSet[brand] = struct{}{}
-			dedup = append(dedup, brand)
-		}
-		if len(dedup) > 0 {
-			prompt += fmt.Sprintf("- Marcas preferidas: %s\n", strings.Join(dedup, ", "))
-		}
+		prompt += fmt.Sprintf("- Orçamento preferido do perfil: R$ %.2f\n", profile.PreferredBudget)
+		prompt += fmt.Sprintf("- Frequência típica de compras: %s\n", profile.ShoppingFrequency)
 	}
 
 	if insights.TotalItems > 0 {
@@ -892,8 +1354,7 @@ FORMATO DE RESPOSTA (JSON):
       "quantity": 1.0,
       "unit": "unidade/kg/litro",
       "estimated_price": 0.00,
-      "category": "categoria",
-      "brand": "marca sugerida ou genérico",
+			"category": "categoria",
       "priority": 1,
       "reason": "motivo da inclusão"
     }
@@ -910,8 +1371,8 @@ Crie a lista agora:`
 	return
 }
 
-func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, aiResponse string) (result0 *shoppingModel.ShoppingList, result1 error) {
-	__logParams := map[string]any{"s": s, "userID": userID, "input": input, "budget": budget, "aiResponse": aiResponse}
+func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, preferences shoppingPreferences, aiResponse string) (result0 *shoppingModel.ShoppingList, result1 error) {
+	__logParams := map[string]any{"s": s, "userID": userID, "input": input, "budget": budget, "preferences": preferences, "aiResponse": aiResponse}
 	__logStart := time.Now()
 	defer func() {
 		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
@@ -938,24 +1399,41 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 
 	pantryID := input.PantryID
 	shoppingList := &shoppingModel.ShoppingList{
-		UserID:        userID,
-		PantryID:      &pantryID,
-		Name:          input.Name,
-		Status:        "pending",
-		TotalBudget:   budget,
-		EstimatedCost: aiList.EstimatedTotal,
-		GeneratedBy:   "ai",
+		UserID:              userID,
+		PantryID:            &pantryID,
+		Name:                input.Name,
+		Status:              "pending",
+		TotalBudget:         budget,
+		EstimatedCost:       aiList.EstimatedTotal,
+		GeneratedBy:         "ai",
+		HouseholdSize:       preferences.HouseholdSize,
+		MonthlyIncome:       preferences.MonthlyIncome,
+		DietaryRestrictions: shoppingModel.StringArray(normalizeStringSlice(preferences.DietaryRestrictions)),
 	}
 
 	// Convert AI items to shopping list items
 	for _, aiItem := range aiList.Items {
+		quantity := clampNonNegative(aiItem.Quantity)
+		priceQuantity := deriveAIPriceQuantity(quantity, aiItem.Unit)
+		quantityFactor := 1.0
+		if priceQuantity > 0 {
+			quantityFactor = quantity / priceQuantity
+		}
+		if quantityFactor <= 0 {
+			quantityFactor = 1
+		}
+		estimatedPrice := clampNonNegative(aiItem.EstimatedPrice)
+		if estimatedPrice > 0 {
+			estimatedPrice = estimatedPrice / quantityFactor
+		}
+
 		item := shoppingModel.ShoppingListItem{
 			Name:           aiItem.Name,
-			Quantity:       aiItem.Quantity,
+			Quantity:       quantity,
 			Unit:           aiItem.Unit,
-			EstimatedPrice: aiItem.EstimatedPrice,
+			EstimatedPrice: estimatedPrice,
+			PriceQuantity:  priceQuantity,
 			Category:       aiItem.Category,
-			Brand:          aiItem.Brand,
 			Priority:       aiItem.Priority,
 			Notes:          aiItem.Reason,
 			Source:         "ai_suggestion",
@@ -968,6 +1446,12 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 
 		shoppingList.Items = append(shoppingList.Items, item)
 	}
+
+	estimatedTotal, actualTotal := calculateListTotals(shoppingList.Items)
+	if estimatedTotal > 0 {
+		shoppingList.EstimatedCost = estimatedTotal
+	}
+	shoppingList.ActualCost = actualTotal
 	result0 = shoppingList
 	result1 = nil
 	return
