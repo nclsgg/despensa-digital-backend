@@ -6,9 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -85,27 +83,6 @@ func (m *mockAuthRepository) UpdateUser(ctx context.Context, user *model.User) (
 	return
 }
 
-func getTestRedisClient(t *testing.T) (result0 *redis.Client, result1 *miniredis.Miniredis) {
-	__logParams := map[string]any{"t": t}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "getTestRedisClient"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "getTestRedisClient"), zap.Any("params",
-
-		// Testes comentados pois os métodos foram removidos da interface AuthService
-		// após refatoração para usar apenas OAuth
-		__logParams))
-	mr, err := miniredis.Run()
-	assert.NoError(t, err)
-	client := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
-	result0 = client
-	result1 = mr
-	return
-}
-
 func getTestConfig() (result0 *config.Config) {
 	__logParams := map[string]any{}
 	__logStart := time.Now()
@@ -129,12 +106,9 @@ func TestHashPassword(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestHashPassword"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestHashPassword"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	password := "minhasenha123"
 	hashedPassword, err := authSvc.HashPassword(password)
@@ -151,12 +125,10 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_GetUserByEmail"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_GetUserByEmail"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
 
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	user := &model.User{ID: uuid.New(), Email: "test@example.com"}
 	repo.On("GetUser", mock.Anything, user.Email).Return(user, nil).Once()
@@ -175,12 +147,10 @@ func TestAuthService_GetUserByEmail_NotFound(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_GetUserByEmail_NotFound"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_GetUserByEmail_NotFound"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
 
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	email := "missing@example.com"
 	repo.On("GetUser", mock.Anything, email).Return((*model.User)(nil), gorm.ErrRecordNotFound).Once()
@@ -199,12 +169,10 @@ func TestAuthService_CreateUserOAuth_SetsPassword(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CreateUserOAuth_SetsPassword"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CreateUserOAuth_SetsPassword"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
 
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	user := &model.User{Email: "oauth@example.com"}
 	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(nil).Once().Run(func(args mock.Arguments) {
@@ -223,12 +191,10 @@ func TestAuthService_CreateUserOAuth_Duplicate(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CreateUserOAuth_Duplicate"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CreateUserOAuth_Duplicate"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
 
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	user := &model.User{Email: "duplicate@example.com"}
 	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(gorm.ErrDuplicatedKey).Once()
@@ -246,12 +212,9 @@ func TestAuthService_CompleteProfile_Success(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CompleteProfile_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CompleteProfile_Success"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	userID := uuid.New()
 	existing := &model.User{ID: userID}
@@ -275,12 +238,9 @@ func TestAuthService_CompleteProfile_NotFound(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CompleteProfile_NotFound"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CompleteProfile_NotFound"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	userID := uuid.New()
 	repo.On("GetUserById", mock.Anything, userID).Return((*model.User)(nil), gorm.ErrRecordNotFound).Once()
@@ -298,12 +258,9 @@ func TestAuthService_CompleteProfile_UpdateError(t *testing.T) {
 		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CompleteProfile_UpdateError"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CompleteProfile_UpdateError"), zap.Any("params", __logParams))
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
+	authSvc := service.NewAuthService(repo, cfg)
 
 	userID := uuid.New()
 	existing := &model.User{ID: userID}
@@ -315,127 +272,3 @@ func TestAuthService_CompleteProfile_UpdateError(t *testing.T) {
 
 	repo.AssertExpectations(t)
 }
-
-/*
-func TestRegister_Success(t *testing.T) {
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
-
-	user := &model.User{
-		Email:    "teste@exemplo.com",
-		Password: "senha123",
-	}
-
-	repo.On("CreateUser", mock.Anything, mock.Anything).Return(nil)
-
-	accessToken, refreshToken, err := authSvc.Register(context.Background(), user)
-	assert.NoError(t, err)
-	assert.NotEqual(t, "senha123", user.Password)
-	assert.NotEmpty(t, accessToken)
-	assert.NotEmpty(t, refreshToken)
-	assert.True(t, mr.Exists("refresh_token:"+refreshToken))
-
-	repo.AssertExpectations(t)
-}
-
-func TestLogin_InvalidPassword(t *testing.T) {
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
-
-	hashedPwd, err := authSvc.HashPassword("senhaCorreta")
-	assert.NoError(t, err)
-
-	user := &model.User{
-		ID:       uuid.New(),
-		Email:    "teste@exemplo.com",
-		Password: hashedPwd,
-	}
-
-	repo.On("GetUser", mock.Anything, user.Email).Return(user, nil)
-
-	accessToken, refreshToken, err := authSvc.Login(context.Background(), user.Email, "senhaErrada")
-	assert.Error(t, err)
-	assert.Empty(t, accessToken)
-	assert.Empty(t, refreshToken)
-
-	repo.AssertExpectations(t)
-}
-
-func TestLogout(t *testing.T) {
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
-
-	userID := uuid.New()
-	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, refreshToken)
-
-	err = authSvc.Logout(context.Background(), refreshToken)
-	assert.NoError(t, err)
-	assert.False(t, mr.Exists("refresh_token:"+refreshToken))
-}
-
-func TestGenerateAccessToken(t *testing.T) {
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
-
-	user := &model.User{
-		ID:    uuid.New(),
-		Email: "teste@exemplo.com",
-	}
-
-	tokenString, err := authSvc.GenerateAccessToken(user)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, tokenString)
-
-	parsedToken, err := jwt.ParseWithClaims(tokenString, &model.MyClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(cfg.JWTSecret), nil
-	})
-	assert.NoError(t, err)
-	assert.True(t, parsedToken.Valid)
-}
-
-func TestRefreshToken(t *testing.T) {
-	redisClient, mr := getTestRedisClient(t)
-	defer mr.Close()
-
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg, redisClient)
-
-	userID := uuid.New()
-	user := &model.User{
-		ID:    userID,
-		Email: "teste@exemplo.com",
-	}
-
-	refreshToken, err := authSvc.GenerateRefreshToken(context.Background(), userID)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, refreshToken)
-
-	repo.On("GetUserById", mock.Anything, userID).Return(user, nil)
-
-	newAccessToken, newRefreshToken, err := authSvc.RefreshToken(context.Background(), refreshToken)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, newAccessToken)
-	assert.NotEmpty(t, newRefreshToken)
-
-	repo.AssertExpectations(t)
-}
-*/

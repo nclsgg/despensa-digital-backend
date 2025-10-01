@@ -10,7 +10,6 @@ services:
       - "3030:3030"
     depends_on:
       - postgres
-      - redis
     env_file:
       - .env
     networks:
@@ -30,16 +29,6 @@ services:
       - "5432:5432"
     networks:
       - despensa-net
-
-  redis:
-    image: redis:7
-    container_name: despensa-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    networks:
-      - despensa-net
-
 volumes:
   pgdata:
 

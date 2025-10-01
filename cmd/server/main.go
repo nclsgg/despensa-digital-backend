@@ -41,7 +41,6 @@ func main() {
 	zap.L().Info("function.entry", zap.String("func", "main"), zap.Any("params", __logParams))
 	cfg := config.LoadConfig()
 	db := database.ConnectPostgres(cfg)
-	redis := database.ConnectRedis(cfg)
 
 	sqlDB, _ := db.DB()
 	database.MigrateItems(db)
@@ -57,7 +56,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.SetupRoutes(r, db, cfg, redis)
+	router.SetupRoutes(r, db, cfg)
 
 	r.Run(":" + cfg.Port)
 }

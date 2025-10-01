@@ -12,28 +12,23 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/config"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type authService struct {
-	repo  domain.AuthRepository
-	cfg   *config.Config
-	redis *redis.Client
+	repo domain.AuthRepository
+	cfg  *config.Config
 }
 
-func NewAuthService(repo domain.AuthRepository, cfg *config.Config, redis *redis.Client) (result0 domain.AuthService) {
-	__logParams := map[string]any{"repo": repo, "cfg": cfg,
-
-		// HashPassword creates a hash of the password (simplified for OAuth users)
-		"redis": redis}
+func NewAuthService(repo domain.AuthRepository, cfg *config.Config) (result0 domain.AuthService) {
+	__logParams := map[string]any{"repo": repo, "cfg": cfg}
 	__logStart := time.Now()
 	defer func() {
 		zap.L().Info("function.exit", zap.String("func", "NewAuthService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "NewAuthService"), zap.Any("params", __logParams))
-	result0 = &authService{repo, cfg, redis}
+	result0 = &authService{repo, cfg}
 	return
 }
 

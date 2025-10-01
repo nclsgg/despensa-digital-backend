@@ -14,10 +14,6 @@ type Config struct {
 	JWTExpiration string
 	JWTIssuer     string
 	JWTAudience   string
-	RedisURL      string
-	RedisPassword string
-	RedisDB       string
-	RedisUsername string
 	Port          string
 	CorsOrigin    string
 
@@ -44,10 +40,6 @@ func LoadConfig() (result0 *Config) {
 		JWTExpiration: os.Getenv("JWT_EXPIRATION"),
 		JWTIssuer:     os.Getenv("JWT_ISSUER"),
 		JWTAudience:   os.Getenv("JWT_AUDIENCE"),
-		RedisURL:      os.Getenv("REDIS_URL"),
-		RedisPassword: os.Getenv("REDIS_PASSWORD"),
-		RedisDB:       os.Getenv("REDIS_DB"),
-		RedisUsername: os.Getenv("REDIS_USERNAME"),
 		Port:          getEnv("PORT", "3030"),
 		CorsOrigin:    getEnv("CORS_ORIGIN", "http://localhost:3000"),
 

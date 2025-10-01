@@ -3,7 +3,6 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
-	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
@@ -45,8 +44,8 @@ import (
 	middleware "github.com/nclsgg/despensa-digital/backend/internal/router/middlewares"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Client) {
-	__logParams := map[string]any{"r": r, "db": db, "cfg": cfg, "redis": redis}
+func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
+	__logParams := map[string]any{"r": r, "db": db, "cfg": cfg}
 	__logStart := time.Now()
 	defer func() {
 		zap.
@@ -67,7 +66,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, redis *redis.Cl
 	userRepoInstance := userRepo.NewUserRepository(db)
 
 	authRepoInstance := authRepo.NewAuthRepository(db)
-	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg, redis)
+	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg)
 
 	// OAuth handler
 	oauthHandlerInstance := authHandler.NewOAuthHandler(authServiceInstance, cfg)

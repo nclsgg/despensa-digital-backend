@@ -21,7 +21,7 @@ API em Go que alimenta a plataforma **Despensa Digital**. O serviço organiza o 
 
 | Módulo | Responsabilidade | Destaques |
 | --- | --- | --- |
-| `auth` | Fluxo OAuth (Google/GitHub), tokens JWT, conclusão de perfil | Serviços de OAuth com refresh token no Redis, sentinelas `auth:` |
+| `auth` | Fluxo OAuth (Google/GitHub), tokens JWT, conclusão de perfil | Serviços de OAuth com gestão de tokens JWT, sentinelas `auth:` |
 | `user` | Consultas de usuário autenticado e operações administrativas | `ErrUserNotFound`, profile completion via service |
 | `profile` | Preferências de compra do usuário | Conversão `StringArray`, deduplicação, sentinelas `ErrProfile*` |
 | `pantry` | Gestão de despensas e membros | Regras de acesso e soft delete via GORM |
@@ -32,9 +32,9 @@ API em Go que alimenta a plataforma **Despensa Digital**. O serviço organiza o 
 
 Outros pacotes relevantes:
 
-- `config`: carrega variáveis de ambiente e configurações (JWT, Redis, banco).
+- `config`: carrega variáveis de ambiente e configurações (JWT, banco, OAuth).
 - `pkg/response`: padroniza envelopes de resposta para os handlers.
-- `pkg/database`: inicialização de PostgreSQL e Redis.
+- `pkg/database`: inicialização de PostgreSQL.
 
 ---
 
@@ -43,10 +43,9 @@ Outros pacotes relevantes:
 - **Go 1.22+**
 - **Gin** para HTTP routing
 - **GORM** + PostgreSQL
-- **Redis** para tokens
 - **google/uuid**, **golang-jwt/jwt/v5**
 - **swaggo/swag** para documentação Swagger
-- **miniredis** + **testify** em testes
+- **testify** em testes
 
 ---
 
@@ -70,7 +69,7 @@ backend/
 │   ├── router/               # Inicialização das rotas e middlewares
 │   └── utils/                # Validadores e helpers
 ├── pkg/
-│   ├── database/             # Conexões PostgreSQL/Redis
+│   ├── database/             # Conexões PostgreSQL
 │   └── response/             # Helpers para JSON/API
 ├── docs/                     # Swagger gerado
 └── tmp/                      # Artefatos temporários (builds, logs)
@@ -103,15 +102,11 @@ JWT_EXPIRATION=1h
 JWT_ISSUER=despensa-digital
 JWT_AUDIENCE=app
 
-REDIS_URL=localhost:6379
-REDIS_USERNAME=
-REDIS_PASSWORD=
-REDIS_DB=0
 ```
 
 ### 3. Subir infra (opcional)
 
-O repositório possui `docker-compose.yaml` para PostgreSQL/Redis de desenvolvimento:
+O repositório possui `docker-compose.yaml` para PostgreSQL de desenvolvimento:
 
 ```bash
 docker compose up -d
@@ -165,7 +160,7 @@ gofmt -w ./internal ./pkg ./cmd
 go test ./...
 ```
 
-- Os módulos principais possuem testes de serviço com `testify` e `miniredis` (auth, profile, user, shopping_list, etc.).
+- Os módulos principais possuem testes de serviço com `testify` (auth, profile, user, shopping_list, etc.).
 - Utilize sentinelas definidas em `internal/modules/<domínio>/domain/errors.go` para manter mapas de erro consistentes.
 - Handlers nunca retornam mensagens cruas de GORM — sempre converta para códigos/labels de domínio.
 
