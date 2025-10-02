@@ -16,7 +16,6 @@ type AuthRepository interface {
 
 type AuthService interface {
 	// Core methods (kept for OAuth)
-	HashPassword(password string) (string, error)
 	GenerateAccessToken(user *model.User) (string, error)
 
 	// OAuth methods

@@ -56,8 +56,7 @@ func TestCreateUserAndGetUser(t *testing.T) {
 	ctx := context.Background()
 
 	user := &model.User{
-		Email:    "teste@exemplo.com",
-		Password: "senha123",
+		Email: "teste@exemplo.com",
 	}
 	err := repo.CreateUser(ctx, user)
 	assert.NoError(t, err)
@@ -87,8 +86,7 @@ func TestGetUserById(t *testing.T) {
 	ctx := context.Background()
 
 	user := &model.User{
-		Email:    "teste2@exemplo.com",
-		Password: "senha456",
+		Email: "teste2@exemplo.com",
 	}
 	err := repo.CreateUser(ctx, user)
 	assert.NoError(t, err)

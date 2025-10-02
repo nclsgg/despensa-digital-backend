@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -99,25 +98,6 @@ func getTestConfig() (result0 *config.Config) {
 	return
 }
 
-func TestHashPassword(t *testing.T) {
-	__logParams := map[string]any{"t": t}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "TestHashPassword"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "TestHashPassword"), zap.Any("params", __logParams))
-	repo := new(mockAuthRepository)
-	cfg := getTestConfig()
-	authSvc := service.NewAuthService(repo, cfg)
-
-	password := "minhasenha123"
-	hashedPassword, err := authSvc.HashPassword(password)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, hashedPassword)
-	assert.NotEqual(t, password, hashedPassword)
-}
-
 func TestAuthService_GetUserByEmail(t *testing.T) {
 	__logParams := map[string]any{"t": t}
 	__logStart := time.Now()
@@ -162,13 +142,13 @@ func TestAuthService_GetUserByEmail_NotFound(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestAuthService_CreateUserOAuth_SetsPassword(t *testing.T) {
+func TestAuthService_CreateUserOAuth_Success(t *testing.T) {
 	__logParams := map[string]any{"t": t}
 	__logStart := time.Now()
 	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CreateUserOAuth_SetsPassword"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+		zap.L().Info("function.exit", zap.String("func", "TestAuthService_CreateUserOAuth_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
-	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CreateUserOAuth_SetsPassword"), zap.Any("params", __logParams))
+	zap.L().Info("function.entry", zap.String("func", "TestAuthService_CreateUserOAuth_Success"), zap.Any("params", __logParams))
 
 	repo := new(mockAuthRepository)
 	cfg := getTestConfig()
@@ -177,7 +157,8 @@ func TestAuthService_CreateUserOAuth_SetsPassword(t *testing.T) {
 	user := &model.User{Email: "oauth@example.com"}
 	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*model.User")).Return(nil).Once().Run(func(args mock.Arguments) {
 		created := args.Get(1).(*model.User)
-		require.NotEmpty(t, created.Password)
+		require.Same(t, user, created)
+		require.Equal(t, user.Email, created.Email)
 	})
 
 	require.NoError(t, authSvc.CreateUserOAuth(context.Background(), user))

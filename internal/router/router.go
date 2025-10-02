@@ -1,13 +1,14 @@
 package router
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"time"
 
 	"github.com/nclsgg/despensa-digital/backend/config"
 	authHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/handler"

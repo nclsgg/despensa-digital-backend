@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"time"
 
@@ -22,45 +20,17 @@ type authService struct {
 }
 
 func NewAuthService(repo domain.AuthRepository, cfg *config.Config) (result0 domain.AuthService) {
-	__logParams := map[string]any{"repo": repo, "cfg": cfg}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewAuthService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewAuthService"), zap.Any("params", __logParams))
 	result0 = &authService{repo, cfg}
 	return
 }
 
-func (s *authService) HashPassword(password string) (result0 string, result1 error) {
-	__logParams := map[string]any{"s": s, "password": password}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*authService.HashPassword"), zap.Any("result", map[string]any{
-
-			// GenerateAccessToken generates JWT token for OAuth authenticated users
-			"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*authService.HashPassword"), zap.Any("params", __logParams))
-	hasher := sha256.New()
-	hasher.Write([]byte(password + "salt"))
-	hashedPassword := hasher.Sum(nil)
-	encoded := base64.StdEncoding.EncodeToString(hashedPassword)
-	result0 = encoded
-	result1 = nil
-	return
-}
-
 func (s *authService) GenerateAccessToken(user *model.User) (result0 string, result1 error) {
-	__logParams := map[string]any{"s": s, "user": user}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*authService.GenerateAccessToken"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*authService.GenerateAccessToken"), zap.Any("params", __logParams))
 	jwtExpiration, err := time.ParseDuration(s.cfg.JWTExpiration)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.GenerateAccessToken"), zap.Error(err), zap.Any("params", __logParams))
+		zap.L().Error("auth_service.generate_access_token.parse_duration_failed",
+			zap.String("jwt_expiration", s.cfg.JWTExpiration),
+			zap.Error(err),
+		)
 		result0 = ""
 		result1 = err
 		return
@@ -79,7 +49,10 @@ func (s *authService) GenerateAccessToken(user *model.User) (result0 string, res
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	result0, result1 = token.SignedString([]byte(s.cfg.JWTSecret))
 	if result1 != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.GenerateAccessToken"), zap.Error(result1), zap.Any("params", __logParams))
+		zap.L().Error("auth_service.generate_access_token.sign_failed",
+			zap.String("user_id", user.ID.String()),
+			zap.Error(result1),
+		)
 		result0 = ""
 		return
 	}
@@ -88,24 +61,20 @@ func (s *authService) GenerateAccessToken(user *model.User) (result0 string, res
 
 // OAuth specific methods
 func (s *authService) GetUserByEmail(ctx context.Context, email string) (result0 *model.User, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "email": email}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*authService.GetUserByEmail"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}(
-
-	// For OAuth users, we don't need password hashing since they authenticate via OAuth
-	// But we'll set a placeholder password just in case
-	)
-	zap.L().Info("function.entry", zap.String("func", "*authService.GetUserByEmail"), zap.Any("params", __logParams))
 	user, err := s.repo.GetUser(ctx, email)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.GetUserByEmail"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			zap.L().Info("auth_service.get_user_by_email.not_found",
+				zap.String("email", email),
+			)
 			result0 = nil
 			result1 = domain.ErrUserNotFound
 			return
 		}
+		zap.L().Error("auth_service.get_user_by_email.failed",
+			zap.String("email", email),
+			zap.Error(err),
+		)
 		result0 = nil
 		result1 = err
 		return
@@ -116,29 +85,18 @@ func (s *authService) GetUserByEmail(ctx context.Context, email string) (result0
 }
 
 func (s *authService) CreateUserOAuth(ctx context.Context, user *model.User) (result0 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "user": user}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*authService.CreateUserOAuth"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*authService.CreateUserOAuth"), zap.Any("params", __logParams))
-
-	if user.Password == "" {
-		hashedPassword, err := s.HashPassword("oauth-no-password")
-		if err != nil {
-			zap.L().Error("function.error", zap.String("func", "*authService.CreateUserOAuth"), zap.Error(err), zap.Any("params", __logParams))
-			result0 = err
-			return
-		}
-		user.Password = hashedPassword
-	}
-
 	if err := s.repo.CreateUser(ctx, user); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.CreateUserOAuth"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			zap.L().Warn("auth_service.create_oauth_user.duplicate_email",
+				zap.String("email", user.Email),
+			)
 			result0 = domain.ErrEmailAlreadyRegistered
 			return
 		}
+		zap.L().Error("auth_service.create_oauth_user.persist_failed",
+			zap.String("email", user.Email),
+			zap.Error(err),
+		)
 		result0 = err
 		return
 	}
@@ -148,19 +106,19 @@ func (s *authService) CreateUserOAuth(ctx context.Context, user *model.User) (re
 
 // CompleteProfile updates user profile with first/last name and marks profile as complete
 func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) (result0 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "firstName": firstName, "lastName": lastName}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*authService.CompleteProfile"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*authService.CompleteProfile"), zap.Any("params", __logParams))
 	user, err := s.repo.GetUserById(ctx, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			zap.L().Info("auth_service.complete_profile.user_not_found",
+				zap.String("user_id", userID.String()),
+			)
 			result0 = domain.ErrUserNotFound
 			return
 		}
+		zap.L().Error("auth_service.complete_profile.load_failed",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
 		result0 = err
 		return
 	}
@@ -170,7 +128,10 @@ func (s *authService) CompleteProfile(ctx context.Context, userID uuid.UUID, fir
 	user.ProfileCompleted = true
 
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*authService.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
+		zap.L().Error("auth_service.complete_profile.persist_failed",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
 		result0 = domain.ErrProfileUpdateFailed
 		return
 	}

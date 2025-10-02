@@ -11,7 +11,6 @@ import (
 type User struct {
 	ID               uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	Email            string         `gorm:"unique;index" json:"email"`
-	Password         string         `json:"password"`
 	FirstName        string         `json:"first_name"`
 	LastName         string         `json:"last_name"`
 	Role             string         `gorm:"default:'free'" json:"role"`
