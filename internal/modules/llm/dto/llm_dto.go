@@ -104,10 +104,10 @@ type RecipeResponseDTO struct {
 	Description         string                 `json:"description"`
 	Ingredients         []RecipeIngredientDTO  `json:"ingredients"`
 	Instructions        []RecipeInstructionDTO `json:"instructions"`
-	CookingTime         int                    `json:"cooking_time"`
-	PreparationTime     int                    `json:"preparation_time"`
-	TotalTime           int                    `json:"total_time"`
-	ServingSize         int                    `json:"serving_size"`
+	CookingTime         *float64               `json:"cooking_time"`     // Changed to *float64 for LLM flexibility
+	PreparationTime     *float64               `json:"preparation_time"` // Changed to *float64 for LLM flexibility
+	TotalTime           *float64               `json:"total_time"`       // Changed to *float64 for LLM flexibility
+	ServingSize         *float64               `json:"serving_size"`     // Changed to *float64 for LLM flexibility
 	Difficulty          string                 `json:"difficulty"`
 	MealType            string                 `json:"meal_type"`
 	Cuisine             string                 `json:"cuisine"`
@@ -129,10 +129,10 @@ type RecipeIngredientDTO struct {
 
 // RecipeInstructionDTO representa uma instrução da receita
 type RecipeInstructionDTO struct {
-	Step        int    `json:"step"`
-	Description string `json:"description"`
-	Time        int    `json:"time,omitempty"`
-	Temperature string `json:"temperature,omitempty"`
+	Step        int      `json:"step"`
+	Description string   `json:"description"`
+	Time        *float64 `json:"time,omitempty"` // Changed to *float64 to accept decimal values from LLM
+	Temperature *string  `json:"temperature,omitempty"`
 }
 
 // RecipeNutritionDTO representa informações nutricionais

@@ -419,6 +419,16 @@ func (rs *recipeService) fixCommonJSONIssues(jsonStr string) (result0 string) {
 	jsonStr = strings.ReplaceAll(jsonStr, `"amount": "a gosto"`, `"amount": null`)
 	jsonStr = strings.ReplaceAll(jsonStr, `"amount": "à gosto"`, `"amount": null`)
 	jsonStr = strings.ReplaceAll(jsonStr, `"amount": "ao gosto"`, `"amount": null`)
+
+	// Corrige valores numéricos em campos de temperature que devem ser string
+	jsonStr = strings.ReplaceAll(jsonStr, `"temperature": null`, `"temperature": null`)
+
+	// Remove trailing commas antes de fechar objetos/arrays (comum em JSON gerado por LLMs)
+	jsonStr = strings.ReplaceAll(jsonStr, ",\n  }", "\n  }")
+	jsonStr = strings.ReplaceAll(jsonStr, ",\n]", "\n]")
+	jsonStr = strings.ReplaceAll(jsonStr, ", }", " }")
+	jsonStr = strings.ReplaceAll(jsonStr, ", ]", " ]")
+
 	result0 = jsonStr
 	return
 }

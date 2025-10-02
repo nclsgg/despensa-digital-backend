@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+wiki/
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.air.toml
+.vscode/
+.idea/
+
+# Build artifacts
+main
+main.exe
+*.exe
+*.dll
+*.so
+*.dylib
+tmp/
+
+# Test files
+*_test.go
+**/*_test.go
+
+# Coverage
+*.out
+coverage.html
+
+# Dependencies
+vendor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# Deployment scripts
+deploy-*.sh
+deploy-*.bat
+deploy-*.ps1
+ECR-DEPLOY.md
+
+# Postman
+postman_collection.json
+
+# README and docs
+README.md
+readme.md
