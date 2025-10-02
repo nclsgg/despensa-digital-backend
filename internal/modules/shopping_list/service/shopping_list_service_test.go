@@ -296,6 +296,36 @@ func (m *mockPantryRepository) RemoveUserFromPantry(ctx context.Context, pantryI
 	return
 }
 
+func (m *mockPantryRepository) UpdatePantryUserRole(ctx context.Context, pantryID, userID uuid.UUID, newRole string) (result0 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID, "userID": userID, "newRole": newRole}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockPantryRepository.UpdatePantryUserRole"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockPantryRepository.UpdatePantryUserRole"), zap.Any("params", __logParams))
+	args := m.Called(ctx, pantryID, userID, newRole)
+	result0 = args.Error(0)
+	return
+}
+
+func (m *mockPantryRepository) GetPantryUser(ctx context.Context, pantryID, userID uuid.UUID) (result0 *pantryModel.PantryUser, result1 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockPantryRepository.GetPantryUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockPantryRepository.GetPantryUser"), zap.Any("params", __logParams))
+	args := m.Called(ctx, pantryID, userID)
+	if pu, ok := args.Get(0).(*pantryModel.PantryUser); ok {
+		result0 = pu
+		result1 = args.Error(1)
+		return
+	}
+	result0 = nil
+	result1 = args.Error(1)
+	return
+}
+
 func (m *mockPantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) (result0 []*pantryModel.PantryUserInfo, result1 error) {
 	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID}
 	__logStart := time.Now()

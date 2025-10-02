@@ -214,6 +214,28 @@ func (s *stubPantryService) RemoveUserFromPantry(ctx context.Context, pantryID, 
 	return
 }
 
+func (s *stubPantryService) RemoveSpecificUserFromPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "ownerID": ownerID, "targetUserID": targetUserID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.RemoveSpecificUserFromPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.RemoveSpecificUserFromPantry"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
+}
+
+func (s *stubPantryService) TransferOwnership(ctx context.Context, pantryID, currentOwnerID, newOwnerID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "currentOwnerID": currentOwnerID, "newOwnerID": newOwnerID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*stubPantryService.TransferOwnership"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*stubPantryService.TransferOwnership"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
+}
+
 func (s *stubPantryService) ListUsersInPantry(ctx context.Context, pantryID, userID uuid.UUID) (result0 []*pantryModel.PantryUserInfo, result1 error) {
 	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
 	__logStart := time.Now()

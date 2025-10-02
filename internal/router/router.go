@@ -143,6 +143,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		pantryGroup.PUT("/:id", pantryHandlerInstance.UpdatePantry)
 		pantryGroup.POST("/:id/users", pantryHandlerInstance.AddUserToPantry)
 		pantryGroup.DELETE("/:id/users", pantryHandlerInstance.RemoveUserFromPantry)
+		pantryGroup.DELETE("/:id/users/:userId", pantryHandlerInstance.RemoveSpecificUserFromPantry)
+		pantryGroup.POST("/:id/transfer-ownership", pantryHandlerInstance.TransferOwnership)
 		pantryGroup.GET("/:id/users", pantryHandlerInstance.ListUsersInPantry)
 		pantryGroup.GET("/:id/ingredients", recipeHandlerInstance.GetAvailableIngredients)
 	}
@@ -215,6 +217,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		shoppingListGroup.GET("/:id", shoppingListHandlerInstance.GetShoppingList)
 		shoppingListGroup.PUT("/:id", shoppingListHandlerInstance.UpdateShoppingList)
 		shoppingListGroup.DELETE("/:id", shoppingListHandlerInstance.DeleteShoppingList)
+		shoppingListGroup.POST("/:id/items", shoppingListHandlerInstance.CreateShoppingListItem)
 		shoppingListGroup.PUT("/:id/items/:itemId", shoppingListHandlerInstance.UpdateShoppingListItem)
 		shoppingListGroup.DELETE("/:id/items/:itemId", shoppingListHandlerInstance.DeleteShoppingListItem)
 		shoppingListGroup.POST("/generate", shoppingListHandlerInstance.GenerateAIShoppingList)

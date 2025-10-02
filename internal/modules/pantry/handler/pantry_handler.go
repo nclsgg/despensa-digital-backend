@@ -367,6 +367,104 @@ func (h *pantryHandler) RemoveUserFromPantry(c *gin.Context) {
 	response.OK(c, response.MessagePayload{Message: "User removed from pantry"})
 }
 
+// @Summary Remove a specific user from the pantry by user ID
+// @Tags Pantry
+// @Produce json
+// @Param id path string true "Pantry ID"
+// @Param userId path string true "User ID to remove"
+// @Success 200 {object} response.MessageResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 403 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /pantries/{id}/users/{userId} [delete]
+func (h *pantryHandler) RemoveSpecificUserFromPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.RemoveSpecificUserFromPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.RemoveSpecificUserFromPantry"), zap.Any("params", __logParams))
+
+	pantryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveSpecificUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid pantry ID")
+		return
+	}
+
+	targetUserID, err := uuid.Parse(c.Param("userId"))
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveSpecificUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	rawID, _ := c.Get("userID")
+	ownerID := rawID.(uuid.UUID)
+
+	err = h.service.RemoveSpecificUserFromPantry(c.Request.Context(), pantryID, ownerID, targetUserID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.RemoveSpecificUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
+		response.InternalError(c, "Failed to remove user from pantry")
+		return
+	}
+
+	response.OK(c, response.MessagePayload{Message: "User removed from pantry"})
+}
+
+// @Summary Transfer pantry ownership to another member
+// @Tags Pantry
+// @Accept json
+// @Produce json
+// @Param id path string true "Pantry ID"
+// @Param body body dto.TransferOwnershipRequest true "New owner ID"
+// @Success 200 {object} response.MessageResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 403 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /pantries/{id}/transfer-ownership [post]
+func (h *pantryHandler) TransferOwnership(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Any("params", __logParams))
+
+	pantryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid pantry ID")
+		return
+	}
+
+	var req dto.TransferOwnershipRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "New owner ID is required")
+		return
+	}
+
+	newOwnerID, err := uuid.Parse(req.NewOwnerID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid new owner ID")
+		return
+	}
+
+	rawID, _ := c.Get("userID")
+	currentOwnerID := rawID.(uuid.UUID)
+
+	err = h.service.TransferOwnership(c.Request.Context(), pantryID, currentOwnerID, newOwnerID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		response.InternalError(c, "Failed to transfer ownership")
+		return
+	}
+
+	response.OK(c, response.MessagePayload{Message: "Ownership transferred successfully"})
+}
+
 // @Summary List users in a pantry
 // @Tags Pantry
 // @Produce json

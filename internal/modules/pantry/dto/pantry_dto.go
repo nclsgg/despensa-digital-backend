@@ -42,6 +42,10 @@ type ModifyPantryUserRequest struct {
 	Email string `json:"email" binding:"required"`
 }
 
+type TransferOwnershipRequest struct {
+	NewOwnerID string `json:"new_owner_id" binding:"required"`
+}
+
 type PantryUserResponse struct {
 	ID       string `json:"id"`
 	UserID   string `json:"user_id"`

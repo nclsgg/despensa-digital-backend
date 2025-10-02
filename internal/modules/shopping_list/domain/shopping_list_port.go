@@ -27,6 +27,7 @@ type ShoppingListService interface {
 	GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*dto.ShoppingListSummaryDTO, error)
 	UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (*dto.ShoppingListResponseDTO, error)
 	DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+	CreateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, input dto.CreateShoppingListItemDTO) (*dto.ShoppingListResponseDTO, error)
 	UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (*dto.ShoppingListItemResponseDTO, error)
 	DeleteShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID) error
 	GenerateAIShoppingList(ctx context.Context, userID uuid.UUID, input dto.GenerateAIShoppingListDTO) (*dto.ShoppingListResponseDTO, error)

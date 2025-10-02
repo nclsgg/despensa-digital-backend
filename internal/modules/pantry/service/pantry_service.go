@@ -353,3 +353,117 @@ func (s *pantryService) RemoveUserFromPantry(ctx context.Context, pantryID, owne
 	result0 = s.repo.RemoveUserFromPantry(ctx, pantryID, user.ID)
 	return
 }
+
+func (s *pantryService) RemoveSpecificUserFromPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "ownerID": ownerID, "targetUserID": targetUserID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryService.RemoveSpecificUserFromPantry"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryService.RemoveSpecificUserFromPantry"), zap.Any("params", __logParams))
+
+	// Verify that the requester is the owner
+	isOwner, err := s.repo.IsUserOwner(ctx, pantryID, ownerID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.RemoveSpecificUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+	if !isOwner {
+		result0 = errors.New("only pantry owner can remove users")
+		return
+	}
+
+	// Owner cannot remove themselves
+	if ownerID == targetUserID {
+		result0 = errors.New("owner cannot remove themselves")
+		return
+	}
+
+	// Verify that the target user is in the pantry
+	isMember, err := s.repo.IsUserInPantry(ctx, pantryID, targetUserID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.RemoveSpecificUserFromPantry"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+	if !isMember {
+		result0 = errors.New("user is not in the pantry")
+		return
+	}
+
+	result0 = s.repo.RemoveUserFromPantry(ctx, pantryID, targetUserID)
+	return
+}
+
+func (s *pantryService) TransferOwnership(ctx context.Context, pantryID, currentOwnerID, newOwnerID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "currentOwnerID": currentOwnerID, "newOwnerID": newOwnerID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryService.TransferOwnership"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryService.TransferOwnership"), zap.Any("params", __logParams))
+
+	// Verify that the requester is the current owner
+	isOwner, err := s.repo.IsUserOwner(ctx, pantryID, currentOwnerID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+	if !isOwner {
+		result0 = errors.New("only pantry owner can transfer ownership")
+		return
+	}
+
+	// Cannot transfer to self
+	if currentOwnerID == newOwnerID {
+		result0 = errors.New("cannot transfer ownership to yourself")
+		return
+	}
+
+	// Verify that the new owner is a member of the pantry
+	isMember, err := s.repo.IsUserInPantry(ctx, pantryID, newOwnerID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+	if !isMember {
+		result0 = errors.New("new owner must be a member of the pantry")
+		return
+	}
+
+	// Update pantry owner_id
+	pantry, err := s.repo.GetByID(ctx, pantryID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = ErrPantryNotFound
+		return
+	}
+
+	pantry.OwnerID = newOwnerID
+	pantry.UpdatedAt = time.Now()
+	if err := s.repo.Update(ctx, pantry); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	// Update current owner role to member
+	if err := s.repo.UpdatePantryUserRole(ctx, pantryID, currentOwnerID, "member"); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	// Update new owner role to owner
+	if err := s.repo.UpdatePantryUserRole(ctx, pantryID, newOwnerID, "owner"); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.TransferOwnership"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	result0 = nil
+	return
+}

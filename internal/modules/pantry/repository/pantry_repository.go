@@ -156,6 +156,42 @@ func (r *pantryRepository) RemoveUserFromPantry(ctx context.Context, pantryID, u
 	return
 }
 
+func (r *pantryRepository) UpdatePantryUserRole(ctx context.Context, pantryID, userID uuid.UUID, newRole string) (result0 error) {
+	__logParams := map[string]any{"r": r, "ctx": ctx, "pantryID": pantryID, "userID": userID, "newRole": newRole}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryRepository.UpdatePantryUserRole"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryRepository.UpdatePantryUserRole"), zap.Any("params", __logParams))
+	result0 = r.db.WithContext(ctx).
+		Model(&model.PantryUser{}).
+		Where("pantry_id = ? AND user_id = ?", pantryID, userID).
+		Update("role", newRole).Error
+	return
+}
+
+func (r *pantryRepository) GetPantryUser(ctx context.Context, pantryID, userID uuid.UUID) (result0 *model.PantryUser, result1 error) {
+	__logParams := map[string]any{"r": r, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryRepository.GetPantryUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryRepository.GetPantryUser"), zap.Any("params", __logParams))
+	var pantryUser model.PantryUser
+	err := r.db.WithContext(ctx).
+		Where("pantry_id = ? AND user_id = ? AND deleted_at IS NULL", pantryID, userID).
+		First(&pantryUser).Error
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryRepository.GetPantryUser"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+	result0 = &pantryUser
+	result1 = nil
+	return
+}
+
 func (r *pantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) (result0 []*model.PantryUserInfo, result1 error) {
 	__logParams := map[string]any{"r": r, "ctx": ctx, "pantryID": pantryID}
 	__logStart := time.Now()

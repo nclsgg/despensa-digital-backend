@@ -280,6 +280,29 @@ func (f *fakePantryRepository) RemoveUserFromPantry(ctx context.Context, pantryI
 	return
 }
 
+func (f *fakePantryRepository) UpdatePantryUserRole(ctx context.Context, pantryID, userID uuid.UUID, newRole string) (result0 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID, "userID": userID, "newRole": newRole}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.UpdatePantryUserRole"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.UpdatePantryUserRole"), zap.Any("params", __logParams))
+	result0 = errors.New("not implemented")
+	return
+}
+
+func (f *fakePantryRepository) GetPantryUser(ctx context.Context, pantryID, userID uuid.UUID) (result0 *pantryModel.PantryUser, result1 error) {
+	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*fakePantryRepository.GetPantryUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*fakePantryRepository.GetPantryUser"), zap.Any("params", __logParams))
+	result0 = nil
+	result1 = errors.New("not implemented")
+	return
+}
+
 func (f *fakePantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) (result0 []*pantryModel.PantryUserInfo, result1 error) {
 	__logParams := map[string]any{"f": f, "ctx": ctx, "pantryID": pantryID}
 	__logStart := time.Now()

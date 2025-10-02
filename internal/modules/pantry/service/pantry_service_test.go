@@ -133,6 +133,36 @@ func (m *mockPantryRepository) RemoveUserFromPantry(ctx context.Context, pantryI
 	return
 }
 
+func (m *mockPantryRepository) UpdatePantryUserRole(ctx context.Context, pantryID, userID uuid.UUID, newRole string) (result0 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID, "userID": userID, "newRole": newRole}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockPantryRepository.UpdatePantryUserRole"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockPantryRepository.UpdatePantryUserRole"), zap.Any("params", __logParams))
+	args := m.Called(ctx, pantryID, userID, newRole)
+	result0 = args.Error(0)
+	return
+}
+
+func (m *mockPantryRepository) GetPantryUser(ctx context.Context, pantryID, userID uuid.UUID) (result0 *model.PantryUser, result1 error) {
+	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*mockPantryRepository.GetPantryUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*mockPantryRepository.GetPantryUser"), zap.Any("params", __logParams))
+	args := m.Called(ctx, pantryID, userID)
+	if pu, ok := args.Get(0).(*model.PantryUser); ok {
+		result0 = pu
+		result1 = args.Error(1)
+		return
+	}
+	result0 = nil
+	result1 = args.Error(1)
+	return
+}
+
 func (m *mockPantryRepository) ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) (result0 []*model.PantryUserInfo, result1 error) {
 	__logParams := map[string]any{"m": m, "ctx": ctx, "pantryID": pantryID}
 	__logStart := time.Now()
@@ -580,5 +610,211 @@ func TestUpdatePantry_Unauthorized(t *testing.T) {
 
 	err := svc.UpdatePantry(ctx, pantryID, userID, "Name")
 	assert.EqualError(t, err, service.ErrUnauthorized.Error())
+	repo.AssertExpectations(t)
+}
+
+func TestRemoveSpecificUserFromPantry_Success(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRemoveSpecificUserFromPantry_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRemoveSpecificUserFromPantry_Success"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	ownerID := uuid.New()
+	targetUserID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
+	repo.On("IsUserInPantry", ctx, pantryID, targetUserID).Return(true, nil)
+	repo.On("RemoveUserFromPantry", ctx, pantryID, targetUserID).Return(nil)
+
+	err := svc.RemoveSpecificUserFromPantry(ctx, pantryID, ownerID, targetUserID)
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestRemoveSpecificUserFromPantry_BlockOwner(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRemoveSpecificUserFromPantry_BlockOwner"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRemoveSpecificUserFromPantry_BlockOwner"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	ownerID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
+
+	err := svc.RemoveSpecificUserFromPantry(ctx, pantryID, ownerID, ownerID)
+	assert.EqualError(t, err, "owner cannot remove themselves")
+	repo.AssertExpectations(t)
+}
+
+func TestRemoveSpecificUserFromPantry_NotMember(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRemoveSpecificUserFromPantry_NotMember"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRemoveSpecificUserFromPantry_NotMember"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	ownerID := uuid.New()
+	targetUserID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
+	repo.On("IsUserInPantry", ctx, pantryID, targetUserID).Return(false, nil)
+
+	err := svc.RemoveSpecificUserFromPantry(ctx, pantryID, ownerID, targetUserID)
+	assert.EqualError(t, err, "user is not in the pantry")
+	repo.AssertExpectations(t)
+}
+
+func TestRemoveSpecificUserFromPantry_Unauthorized(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestRemoveSpecificUserFromPantry_Unauthorized"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestRemoveSpecificUserFromPantry_Unauthorized"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	ownerID := uuid.New()
+	targetUserID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(false, nil)
+
+	err := svc.RemoveSpecificUserFromPantry(ctx, pantryID, ownerID, targetUserID)
+	assert.EqualError(t, err, "only pantry owner can remove users")
+	repo.AssertExpectations(t)
+}
+
+func TestTransferOwnership_Success(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestTransferOwnership_Success"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestTransferOwnership_Success"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	currentOwnerID := uuid.New()
+	newOwnerID := uuid.New()
+
+	pantry := &model.Pantry{
+		ID:      pantryID,
+		Name:    "Test Pantry",
+		OwnerID: currentOwnerID,
+	}
+
+	repo.On("IsUserOwner", ctx, pantryID, currentOwnerID).Return(true, nil)
+	repo.On("IsUserInPantry", ctx, pantryID, newOwnerID).Return(true, nil)
+	repo.On("GetByID", ctx, pantryID).Return(pantry, nil)
+	repo.On("Update", ctx, mock.AnythingOfType("*model.Pantry")).Return(nil)
+	repo.On("UpdatePantryUserRole", ctx, pantryID, currentOwnerID, "member").Return(nil)
+	repo.On("UpdatePantryUserRole", ctx, pantryID, newOwnerID, "owner").Return(nil)
+
+	err := svc.TransferOwnership(ctx, pantryID, currentOwnerID, newOwnerID)
+	assert.NoError(t, err)
+	assert.Equal(t, newOwnerID, pantry.OwnerID)
+	repo.AssertExpectations(t)
+}
+
+func TestTransferOwnership_Unauthorized(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestTransferOwnership_Unauthorized"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestTransferOwnership_Unauthorized"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	currentOwnerID := uuid.New()
+	newOwnerID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, currentOwnerID).Return(false, nil)
+
+	err := svc.TransferOwnership(ctx, pantryID, currentOwnerID, newOwnerID)
+	assert.EqualError(t, err, "only pantry owner can transfer ownership")
+	repo.AssertExpectations(t)
+}
+
+func TestTransferOwnership_SameUser(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestTransferOwnership_SameUser"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestTransferOwnership_SameUser"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	ownerID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, ownerID).Return(true, nil)
+
+	err := svc.TransferOwnership(ctx, pantryID, ownerID, ownerID)
+	assert.EqualError(t, err, "cannot transfer ownership to yourself")
+	repo.AssertExpectations(t)
+}
+
+func TestTransferOwnership_NewOwnerNotMember(t *testing.T) {
+	__logParams := map[string]any{"t": t}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "TestTransferOwnership_NewOwnerNotMember"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "TestTransferOwnership_NewOwnerNotMember"), zap.Any("params", __logParams))
+	repo := new(mockPantryRepository)
+	userRepo := new(mockUserRepository)
+	itemRepo := new(mockItemRepository)
+	svc := service.NewPantryService(repo, userRepo, itemRepo)
+
+	ctx := context.Background()
+	pantryID := uuid.New()
+	currentOwnerID := uuid.New()
+	newOwnerID := uuid.New()
+
+	repo.On("IsUserOwner", ctx, pantryID, currentOwnerID).Return(true, nil)
+	repo.On("IsUserInPantry", ctx, pantryID, newOwnerID).Return(false, nil)
+
+	err := svc.TransferOwnership(ctx, pantryID, currentOwnerID, newOwnerID)
+	assert.EqualError(t, err, "new owner must be a member of the pantry")
 	repo.AssertExpectations(t)
 }

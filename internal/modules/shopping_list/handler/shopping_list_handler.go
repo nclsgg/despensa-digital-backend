@@ -287,6 +287,65 @@ func (h *ShoppingListHandler) DeleteShoppingList(c *gin.Context) {
 	response.OK(c, gin.H{"message": "Shopping list deleted successfully"})
 }
 
+// CreateShoppingListItem godoc
+// @Summary Create shopping list item
+// @Description Add a new item to an existing shopping list
+// @Tags shopping-list
+// @Accept json
+// @Produce json
+// @Param id path string true "Shopping list ID"
+// @Param item body dto.CreateShoppingListItemDTO true "Shopping list item data"
+// @Success 201 {object} response.APIResponse{data=dto.ShoppingListResponseDTO}
+// @Failure 400 {object} response.APIResponse
+// @Failure 401 {object} response.APIResponse
+// @Failure 403 {object} response.APIResponse
+// @Failure 404 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /shopping-lists/{id}/items [post]
+// @Security BearerAuth
+func (h *ShoppingListHandler) CreateShoppingListItem(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*ShoppingListHandler.CreateShoppingListItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*ShoppingListHandler.CreateShoppingListItem"), zap.Any("params", __logParams))
+
+	var input dto.CreateShoppingListItemDTO
+	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid input: "+err.Error())
+		return
+	}
+
+	rawID, _ := c.Get("userID")
+	userUUID := rawID.(uuid.UUID)
+
+	idParam := c.Param("id")
+	shoppingListID, err := uuid.Parse(idParam)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Invalid shopping list ID")
+		return
+	}
+
+	shoppingList, err := h.shoppingListService.CreateShoppingListItem(c.Request.Context(), userUUID, shoppingListID, input)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		switch {
+		case errors.Is(err, domain.ErrShoppingListNotFound):
+			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
+		case errors.Is(err, domain.ErrUnauthorized):
+			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this shopping list")
+		default:
+			response.InternalError(c, "Failed to create shopping list item")
+		}
+		return
+	}
+
+	response.Success(c, http.StatusCreated, shoppingList)
+}
+
 // UpdateShoppingListItem godoc
 // @Summary Update shopping list item
 // @Description Update an item in a shopping list

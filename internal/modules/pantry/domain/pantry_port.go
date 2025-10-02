@@ -18,6 +18,8 @@ type PantryService interface {
 	UpdatePantry(ctx context.Context, pantryID, userID uuid.UUID, newName string) error
 	AddUserToPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error
 	RemoveUserFromPantry(ctx context.Context, pantryID, ownerID uuid.UUID, targetUser string) error
+	RemoveSpecificUserFromPantry(ctx context.Context, pantryID, ownerID, targetUserID uuid.UUID) error
+	TransferOwnership(ctx context.Context, pantryID, currentOwnerID, newOwnerID uuid.UUID) error
 	ListUsersInPantry(ctx context.Context, pantryID, userID uuid.UUID) ([]*model.PantryUserInfo, error)
 }
 
@@ -31,6 +33,8 @@ type PantryRepository interface {
 	IsUserOwner(ctx context.Context, pantryID, userID uuid.UUID) (bool, error)
 	AddUserToPantry(ctx context.Context, pantryUser *model.PantryUser) error
 	RemoveUserFromPantry(ctx context.Context, pantryID, userID uuid.UUID) error
+	UpdatePantryUserRole(ctx context.Context, pantryID, userID uuid.UUID, newRole string) error
+	GetPantryUser(ctx context.Context, pantryID, userID uuid.UUID) (*model.PantryUser, error)
 	ListUsersInPantry(ctx context.Context, pantryID uuid.UUID) ([]*model.PantryUserInfo, error)
 }
 
@@ -42,5 +46,7 @@ type PantryHandler interface {
 	UpdatePantry(ctx *gin.Context)
 	AddUserToPantry(ctx *gin.Context)
 	RemoveUserFromPantry(ctx *gin.Context)
+	RemoveSpecificUserFromPantry(ctx *gin.Context)
+	TransferOwnership(ctx *gin.Context)
 	ListUsersInPantry(c *gin.Context)
 }

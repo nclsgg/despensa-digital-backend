@@ -405,6 +405,98 @@ func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uui
 	return
 }
 
+func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, input dto.CreateShoppingListItemDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "shoppingListID": shoppingListID, "input": input}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Any("params", __logParams))
+
+	// Get shopping list and verify ownership
+	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			result0 = nil
+			result1 = domain.ErrShoppingListNotFound
+			return
+		}
+		result0 = nil
+		result1 = fmt.Errorf("get shopping list: %w", err)
+		return
+	}
+
+	if shoppingList.UserID != userID {
+		result0 = nil
+		result1 = domain.ErrUnauthorized
+		return
+	}
+
+	// Create new item with default values
+	priceQuantity := input.PriceQuantity
+	if priceQuantity <= 0 {
+		priceQuantity = 1
+	}
+
+	priority := input.Priority
+	if priority == 0 {
+		priority = 3
+	}
+
+	newItem := &shoppingModel.ShoppingListItem{
+		ShoppingListID: shoppingListID,
+		Name:           input.Name,
+		Quantity:       input.Quantity,
+		Unit:           input.Unit,
+		EstimatedPrice: input.EstimatedPrice,
+		PriceQuantity:  priceQuantity,
+		Category:       input.Category,
+		Priority:       priority,
+		Notes:          input.Notes,
+		Source:         "manual",
+	}
+
+	if input.PantryItemID != nil {
+		newItem.PantryItemID = input.PantryItemID
+	}
+
+	// Save the new item
+	if err := s.shoppingListRepo.CreateItem(ctx, newItem); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("create shopping list item: %w", err)
+		return
+	}
+
+	// Reload shopping list to get all items including the new one
+	shoppingList, err = s.shoppingListRepo.GetByID(ctx, shoppingListID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("reload shopping list: %w", err)
+		return
+	}
+
+	// Recalculate totals
+	estimatedTotal, actualTotal := calculateListTotals(shoppingList.Items)
+	shoppingList.EstimatedCost = estimatedTotal
+	shoppingList.ActualCost = actualTotal
+
+	// Update shopping list with new totals
+	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = fmt.Errorf("update shopping list totals: %w", err)
+		return
+	}
+
+	// Return the full shopping list with the new item
+	result0 = s.convertToResponseDTO(ctx, shoppingList)
+	result1 = nil
+	return
+}
+
 func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (result0 *dto.ShoppingListItemResponseDTO, result1 error) {
 	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "shoppingListID": shoppingListID, "itemID": itemID, "input": input}
 	__logStart := time.Now()
