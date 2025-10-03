@@ -11,20 +11,19 @@ import (
 
 // models/item.go
 type Item struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
-	PantryID      uuid.UUID      `gorm:"type:uuid;not null;index:idx_item_pantry,priority:1" json:"pantry_id"`
-	AddedBy       uuid.UUID      `gorm:"type:uuid;not null" json:"added_by"`
-	CategoryID    *uuid.UUID     `gorm:"type:uuid;index" json:"category_id"`
-	Name          string         `gorm:"not null;index:idx_item_name" json:"name"`
-	Quantity      float64        `gorm:"not null" json:"quantity"`
-	TotalPrice    float64        `gorm:"->;type:numeric" json:"total_price"`
-	PricePerUnit  float64        `gorm:"type:numeric;not null" json:"price_per_unit"`
-	PriceQuantity float64        `gorm:"type:numeric;default:1" json:"price_quantity"`
-	Unit          string         `gorm:"not null" json:"unit"`
-	ExpiresAt     *time.Time     `gorm:"type:timestamp;index" json:"expires_at"`
-	CreatedAt     time.Time      `gorm:"autoCreateTime;index:idx_item_pantry,priority:2" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+	ID           uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
+	PantryID     uuid.UUID      `gorm:"type:uuid;not null;index:idx_item_pantry,priority:1" json:"pantry_id"`
+	AddedBy      uuid.UUID      `gorm:"type:uuid;not null" json:"added_by"`
+	CategoryID   *uuid.UUID     `gorm:"type:uuid;index" json:"category_id"`
+	Name         string         `gorm:"not null;index:idx_item_name" json:"name"`
+	Quantity     float64        `gorm:"not null" json:"quantity"`
+	TotalPrice   float64        `gorm:"->;type:numeric" json:"total_price"`
+	PricePerUnit float64        `gorm:"type:numeric;not null" json:"price_per_unit"`
+	Unit         string         `gorm:"not null" json:"unit"`
+	ExpiresAt    *time.Time     `gorm:"type:timestamp;index" json:"expires_at"`
+	CreatedAt    time.Time      `gorm:"autoCreateTime;index:idx_item_pantry,priority:2" json:"created_at"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 }
 
 func (i *Item) ApplyUpdate(input dto.UpdateItemDTO) {
@@ -40,8 +39,8 @@ func (i *Item) ApplyUpdate(input dto.UpdateItemDTO) {
 	if input.Quantity != nil {
 		i.Quantity = *input.Quantity
 	}
-	if input.PriceQuantity != nil {
-		i.PriceQuantity = *input.PriceQuantity
+	if input.PricePerUnit != nil {
+		i.PricePerUnit = *input.PricePerUnit
 	}
 	if input.Unit != nil {
 		i.Unit = *input.Unit

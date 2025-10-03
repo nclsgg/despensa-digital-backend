@@ -27,10 +27,8 @@ type CreateShoppingListItemDTO struct {
 	Quantity       float64    `json:"quantity" binding:"required,min=0.1"`
 	Unit           string     `json:"unit" binding:"required"`
 	EstimatedPrice float64    `json:"estimated_price" binding:"required,min=0"`
-	PriceQuantity  float64    `json:"price_quantity" binding:"omitempty,min=0.001"`
 	Category       string     `json:"category"`
 	Priority       int        `json:"priority" binding:"omitempty,min=1,max=3"`
-	Notes          string     `json:"notes"`
 	PantryItemID   *uuid.UUID `json:"pantry_item_id,omitempty"`
 }
 
@@ -47,12 +45,10 @@ type UpdateShoppingListItemDTO struct {
 	Quantity       *float64   `json:"quantity,omitempty" binding:"omitempty,min=0.1"`
 	Unit           *string    `json:"unit,omitempty"`
 	EstimatedPrice *float64   `json:"estimated_price,omitempty" binding:"omitempty,min=0"`
-	PriceQuantity  *float64   `json:"price_quantity,omitempty" binding:"omitempty,min=0.001"`
 	ActualPrice    *float64   `json:"actual_price,omitempty" binding:"omitempty,min=0"`
 	Category       *string    `json:"category,omitempty"`
 	Priority       *int       `json:"priority,omitempty" binding:"omitempty,min=1,max=3"`
 	Purchased      *bool      `json:"purchased,omitempty"`
-	Notes          *string    `json:"notes,omitempty"`
 	PantryItemID   *uuid.UUID `json:"pantry_item_id,omitempty"`
 }
 
@@ -93,12 +89,10 @@ type ShoppingListItemResponseDTO struct {
 	Quantity       float64 `json:"quantity"`
 	Unit           string  `json:"unit"`
 	EstimatedPrice float64 `json:"estimated_price"`
-	PriceQuantity  float64 `json:"price_quantity"`
 	ActualPrice    float64 `json:"actual_price"`
 	Category       string  `json:"category"`
 	Priority       int     `json:"priority"`
 	Purchased      bool    `json:"purchased"`
-	Notes          string  `json:"notes"`
 	Source         string  `json:"source"`
 	PantryItemID   *string `json:"pantry_item_id,omitempty"`
 	CreatedAt      string  `json:"created_at"`

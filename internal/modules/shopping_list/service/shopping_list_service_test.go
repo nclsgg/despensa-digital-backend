@@ -602,70 +602,6 @@ func TestShoppingListService_UpdateShoppingListItem_RecalculateTotals(t *testing
 	pantryRepo.AssertExpectations(t)
 }
 
-func TestShoppingListService_UpdateShoppingListItem_WithPriceQuantity(t *testing.T) {
-	__logParams := map[string]any{"t": t}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "TestShoppingListService_UpdateShoppingListItem_WithPriceQuantity"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "TestShoppingListService_UpdateShoppingListItem_WithPriceQuantity"), zap.Any("params", __logParams))
-	repo := new(mockShoppingListRepository)
-	pantryRepo := new(mockPantryRepository)
-	service := newService(repo, pantryRepo)
-
-	userID := uuid.New()
-	listID := uuid.New()
-	itemID := uuid.New()
-
-	shoppingList := &shoppingModel.ShoppingList{
-		ID:     listID,
-		UserID: userID,
-		Items: []shoppingModel.ShoppingListItem{
-			{
-				ID:             itemID,
-				ShoppingListID: listID,
-				Name:           "Queijo",
-				Quantity:       500,
-				Unit:           "g",
-				EstimatedPrice: 20,
-				PriceQuantity:  1,
-			},
-		},
-	}
-
-	repo.On("GetByID", mock.Anything, listID).Return(shoppingList, nil).Once()
-	repo.On("UpdateItem", mock.Anything, mock.MatchedBy(func(item *shoppingModel.ShoppingListItem) bool {
-		return item.ID == itemID && math.Abs(item.PriceQuantity-1000) < 1e-6 && math.Abs(item.EstimatedPrice-20) < 1e-6
-	})).Return(nil).Once()
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(list *shoppingModel.ShoppingList) bool {
-		return list.ID == listID && math.Abs(list.EstimatedCost-10) < 1e-6 && math.Abs(list.ActualCost) < 1e-6
-	})).Return(nil).Once()
-	repo.On("GetItemsByShoppingListID", mock.Anything, listID).Return([]*shoppingModel.ShoppingListItem{
-		{
-			ID:             itemID,
-			ShoppingListID: listID,
-			Name:           "Queijo",
-			Quantity:       500,
-			Unit:           "g",
-			EstimatedPrice: 20,
-			PriceQuantity:  1000,
-		},
-	}, nil).Once()
-
-	input := dto.UpdateShoppingListItemDTO{
-		PriceQuantity: ptrFloat64(1000),
-	}
-
-	result, err := service.UpdateShoppingListItem(context.Background(), userID, listID, itemID, input)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.InEpsilon(t, 1000, result.PriceQuantity, 1e-6)
-	require.InEpsilon(t, 20, result.EstimatedPrice, 1e-6)
-
-	repo.AssertExpectations(t)
-	pantryRepo.AssertExpectations(t)
-}
-
 func TestShoppingListService_UpdateShoppingList_FinalizePurchasedOnly(t *testing.T) {
 	__logParams := map[string]any{"t": t}
 	__logStart := time.Now()
@@ -745,13 +681,13 @@ func TestShoppingListService_UpdateShoppingList_FinalizePurchasedOnly(t *testing
 	pantryRepo.AssertExpectations(t)
 }
 
-func TestShoppingListService_GenerateAIShoppingList_FillsPriceQuantity(t *testing.T) {
+func TestShoppingListService_GenerateAIShoppingList_PopulatesItems(t *testing.T) {
 	__logParams := map[string]any{"t": t}
 	__logStart := time.Now()
 	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "TestShoppingListService_GenerateAIShoppingList_FillsPriceQuantity"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+		zap.L().Info("function.exit", zap.String("func", "TestShoppingListService_GenerateAIShoppingList_PopulatesItems"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
 	}()
-	zap.L().Info("function.entry", zap.String("func", "TestShoppingListService_GenerateAIShoppingList_FillsPriceQuantity"), zap.Any("params", __logParams))
+	zap.L().Info("function.entry", zap.String("func", "TestShoppingListService_GenerateAIShoppingList_PopulatesItems"), zap.Any("params", __logParams))
 	repo := new(mockShoppingListRepository)
 	pantryRepo := new(mockPantryRepository)
 	profileRepo := new(mockProfileRepository)
@@ -784,12 +720,12 @@ func TestShoppingListService_GenerateAIShoppingList_FillsPriceQuantity(t *testin
 
 		arroz, ok := itemsByName["Arroz"]
 		require.True(t, ok)
-		require.InEpsilon(t, 2, arroz.PriceQuantity, 1e-6)
-		require.InEpsilon(t, 30, arroz.EstimatedPrice, 1e-6)
+		require.InEpsilon(t, 2, arroz.Quantity, 1e-6)
+		require.InEpsilon(t, 15, arroz.EstimatedPrice, 1e-6)
 
 		feijao, ok := itemsByName["Feijao"]
 		require.True(t, ok)
-		require.InEpsilon(t, 1, feijao.PriceQuantity, 1e-6)
+		require.InEpsilon(t, 3, feijao.Quantity, 1e-6)
 		require.InEpsilon(t, 5, feijao.EstimatedPrice, 1e-6)
 
 		require.InEpsilon(t, 45, list.EstimatedCost, 1e-6)
@@ -854,9 +790,9 @@ func TestShoppingListService_GenerateAIShoppingList_FillsPriceQuantity(t *testin
 	}
 	require.NotNil(t, arrozDTO)
 	require.NotNil(t, feijaoDTO)
-	require.InEpsilon(t, 2, arrozDTO.PriceQuantity, 1e-6)
-	require.InEpsilon(t, 30, arrozDTO.EstimatedPrice, 1e-6)
-	require.InEpsilon(t, 1, feijaoDTO.PriceQuantity, 1e-6)
+	require.InEpsilon(t, 2, arrozDTO.Quantity, 1e-6)
+	require.InEpsilon(t, 15, arrozDTO.EstimatedPrice, 1e-6)
+	require.InEpsilon(t, 3, feijaoDTO.Quantity, 1e-6)
 	require.InEpsilon(t, 5, feijaoDTO.EstimatedPrice, 1e-6)
 
 	repo.AssertExpectations(t)

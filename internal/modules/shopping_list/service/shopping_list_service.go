@@ -49,7 +49,6 @@ type AIShoppingItem struct {
 	EstimatedPrice float64 `json:"estimated_price"`
 	Category       string  `json:"category"`
 	Priority       int     `json:"priority"`
-	Reason         string  `json:"reason"`
 }
 
 type AIShoppingListResponse struct {
@@ -139,19 +138,13 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 	}
 
 	for _, itemDto := range input.Items {
-		priceQuantity := itemDto.PriceQuantity
-		if priceQuantity <= 0 {
-			priceQuantity = 1
-		}
 		item := &shoppingModel.ShoppingListItem{
 			Name:           itemDto.Name,
 			Quantity:       itemDto.Quantity,
 			Unit:           itemDto.Unit,
 			EstimatedPrice: itemDto.EstimatedPrice,
-			PriceQuantity:  priceQuantity,
 			Category:       itemDto.Category,
 			Priority:       itemDto.Priority,
-			Notes:          itemDto.Notes,
 			Source:         "manual",
 		}
 		if item.Priority == 0 {
@@ -433,30 +426,22 @@ func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID
 		return
 	}
 
-	// Create new item with default values
-	priceQuantity := input.PriceQuantity
-	if priceQuantity <= 0 {
-		priceQuantity = 1
-	}
-
 	priority := input.Priority
 	if priority == 0 {
 		priority = 3
 	}
 
 	newItem := &shoppingModel.ShoppingListItem{
-		ShoppingListID: shoppingListID,
+		ShoppingListID: shoppingList.ID,
 		Name:           input.Name,
 		Quantity:       input.Quantity,
 		Unit:           input.Unit,
 		EstimatedPrice: input.EstimatedPrice,
-		PriceQuantity:  priceQuantity,
+		ActualPrice:    0,
 		Category:       input.Category,
 		Priority:       priority,
-		Notes:          input.Notes,
 		Source:         "manual",
 	}
-
 	if input.PantryItemID != nil {
 		newItem.PantryItemID = input.PantryItemID
 	}
@@ -541,10 +526,6 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 		return
 	}
 
-	if targetItem.PriceQuantity <= 0 {
-		targetItem.PriceQuantity = 1
-	}
-
 	if input.Name != nil {
 		targetItem.Name = *input.Name
 	}
@@ -557,13 +538,6 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	if input.EstimatedPrice != nil {
 		targetItem.EstimatedPrice = *input.EstimatedPrice
 	}
-	if input.PriceQuantity != nil {
-		priceQuantity := *input.PriceQuantity
-		if priceQuantity <= 0 {
-			priceQuantity = 1
-		}
-		targetItem.PriceQuantity = priceQuantity
-	}
 	if input.ActualPrice != nil {
 		targetItem.ActualPrice = *input.ActualPrice
 	}
@@ -575,9 +549,6 @@ func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID
 	}
 	if input.Purchased != nil {
 		targetItem.Purchased = *input.Purchased
-	}
-	if input.Notes != nil {
-		targetItem.Notes = *input.Notes
 	}
 	if input.PantryItemID != nil {
 		targetItem.PantryItemID = input.PantryItemID
@@ -751,7 +722,7 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 		return
 	}
 
-	shoppingList, err := s.parseAIResponse(userID, input, budget, preferences, llmResponse.Response)
+	shoppingList, err := s.parseAIResponse(ctx, userID, input, budget, preferences, llmResponse.Response)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GenerateAIShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
@@ -784,6 +755,184 @@ func (s *shoppingListService) GenerateAIShoppingList(ctx context.Context, userID
 }
 
 // Helper methods
+
+func (s *shoppingListService) prepareAIJSONPayload(ctx context.Context, rawResponse string, input dto.GenerateAIShoppingListDTO, budget float64, preferences shoppingPreferences) (result0 string, result1 error) {
+	__logParams := map[string]any{"rawResponse": rawResponse, "input": input, "budget": budget, "preferences": preferences}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.prepareAIJSONPayload"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.prepareAIJSONPayload"), zap.Any("params", __logParams))
+
+	payload, err := extractJSONPayload(rawResponse)
+	if err != nil {
+		result0 = ""
+		result1 = fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
+		return
+	}
+
+	candidates := []string{payload}
+	repaired := repairJSONStructure(payload)
+	if repaired != payload {
+		candidates = append(candidates, repaired)
+	}
+
+	for _, candidate := range candidates {
+		if json.Valid([]byte(candidate)) {
+			result0 = candidate
+			result1 = nil
+			return
+		}
+	}
+
+	if s.llmService == nil {
+		result0 = ""
+		result1 = fmt.Errorf("%w: llm service unavailable for JSON repair", domain.ErrAIResponseInvalid)
+		return
+	}
+
+	fixedResponse, fixErr := s.requestValidAIJSON(ctx, input, budget, preferences, payload)
+	if fixErr != nil {
+		result0 = ""
+		result1 = fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, fixErr)
+		return
+	}
+
+	fixedPayload, err := extractJSONPayload(fixedResponse)
+	if err != nil {
+		result0 = ""
+		result1 = fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
+		return
+	}
+
+	finalCandidates := []string{fixedPayload}
+	repairedFixed := repairJSONStructure(fixedPayload)
+	if repairedFixed != fixedPayload {
+		finalCandidates = append(finalCandidates, repairedFixed)
+	}
+
+	for _, candidate := range finalCandidates {
+		if json.Valid([]byte(candidate)) {
+			result0 = candidate
+			result1 = nil
+			return
+		}
+	}
+
+	result0 = ""
+	result1 = fmt.Errorf("%w: unable to obtain valid JSON after repair attempts", domain.ErrAIResponseInvalid)
+	return
+}
+
+func extractJSONPayload(response string) (string, error) {
+	start := strings.Index(response, "{")
+	if start == -1 {
+		return "", errors.New("no JSON object found in response")
+	}
+	end := strings.LastIndex(response, "}")
+	if end == -1 {
+		return response[start:], nil
+	}
+	return response[start : end+1], nil
+}
+
+func repairJSONStructure(input string) string {
+	var builder strings.Builder
+	builder.Grow(len(input) + 8)
+
+	stack := make([]rune, 0)
+	inString := false
+	escapeNext := false
+
+	for _, r := range input {
+		builder.WriteRune(r)
+		if escapeNext {
+			escapeNext = false
+			continue
+		}
+		if r == '\\' && inString {
+			escapeNext = true
+			continue
+		}
+		if r == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch r {
+		case '{', '[':
+			stack = append(stack, r)
+		case '}', ']':
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+
+	if inString {
+		builder.WriteRune('"')
+	}
+
+	for i := len(stack) - 1; i >= 0; i-- {
+		if stack[i] == '{' {
+			builder.WriteRune('}')
+		} else {
+			builder.WriteRune(']')
+		}
+	}
+
+	return builder.String()
+}
+
+func (s *shoppingListService) requestValidAIJSON(ctx context.Context, input dto.GenerateAIShoppingListDTO, budget float64, preferences shoppingPreferences, invalidJSON string) (result0 string, result1 error) {
+	__logParams := map[string]any{"input": input, "budget": budget, "preferences": preferences, "invalidJSON": invalidJSON}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.requestValidAIJSON"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.requestValidAIJSON"), zap.Any("params", __logParams))
+
+	if s.llmService == nil {
+		result0 = ""
+		result1 = errors.New("llm service not configured")
+		return
+	}
+
+	promptBuilder := &strings.Builder{}
+	promptBuilder.WriteString("O JSON gerado anteriormente está inválido ou incompleto. Gere novamente um JSON válido seguindo exatamente este formato:\n")
+	promptBuilder.WriteString("{\n  \"items\": [\n    {\n      \"name\": \"Nome do produto\",\n      \"quantity\": 1.0,\n      \"unit\": \"unidade/kg/litro\",\n      \"estimated_price\": 0.00,\n      \"category\": \"categoria\",\n      \"priority\": 1\n    }\n  ],\n  \"reasoning\": \"Explicação geral da lista\",\n  \"estimated_total\": 0.00\n}\n\n")
+	promptBuilder.WriteString("Considere novamente as mesmas instruções originais para a lista: nome da lista \"")
+	promptBuilder.WriteString(input.Name)
+	promptBuilder.WriteString("\"; orçamento máximo de ")
+	promptBuilder.WriteString(fmt.Sprintf("R$ %.2f", budget))
+	promptBuilder.WriteString("; tamanho da família ")
+	promptBuilder.WriteString(fmt.Sprintf("%d", preferences.HouseholdSize))
+	promptBuilder.WriteString("; renda mensal informada R$ ")
+	promptBuilder.WriteString(fmt.Sprintf("%.2f", preferences.MonthlyIncome))
+	if len(preferences.DietaryRestrictions) > 0 {
+		promptBuilder.WriteString("; restrições alimentares: ")
+		promptBuilder.WriteString(strings.Join(preferences.DietaryRestrictions, ", "))
+	}
+	promptBuilder.WriteString(".\n\nRegras obrigatórias:\n- Retorne apenas o JSON válido, sem texto adicional.\n- Preencha todos os campos obrigatórios.\n- Atenha-se ao orçamento informado.\n\nJSON inválido anterior (para referência do problema):\n")
+	promptBuilder.WriteString(invalidJSON)
+
+	response, err := s.llmService.GenerateText(ctx, promptBuilder.String(), map[string]any{
+		"max_tokens":      2000,
+		"temperature":     0.0,
+		"response_format": "json",
+	})
+	if err != nil {
+		result0 = ""
+		result1 = err
+		return
+	}
+
+	result0 = response.Response
+	result1 = nil
+	return
+}
 
 func (s *shoppingListService) resolvePreferences(ctx context.Context, userID uuid.UUID, overrides *dto.ShoppingListPreferencesOverrideDTO) (result0 shoppingPreferences, result1 error) {
 	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "overrides": overrides}
@@ -900,19 +1049,15 @@ func (s *shoppingListService) performCheckout(ctx context.Context, userID uuid.U
 			continue
 		}
 
-		priceQuantity := normalizePriceQuantity(item.PriceQuantity)
 		basePrice := resolveUnitPrice(item.ActualPrice, item.EstimatedPrice)
-		quantityFactor := item.Quantity / priceQuantity
+		quantityFactor := item.Quantity
 		if quantityFactor < 0 {
 			quantityFactor = 0
 		}
 		item.ActualPrice = basePrice
 		actualCost += basePrice * quantityFactor
 
-		perUnitPrice := 0.0
-		if priceQuantity > 0 {
-			perUnitPrice = basePrice / priceQuantity
-		}
+		perUnitPrice := basePrice
 
 		var matchedPantryItem *itemModel.Item
 		if sl.PantryID != nil && s.itemRepo != nil {
@@ -950,7 +1095,6 @@ func (s *shoppingListService) performCheckout(ctx context.Context, userID uuid.U
 				matchedPantryItem.Quantity += item.Quantity
 				if perUnitPrice > 0 {
 					matchedPantryItem.PricePerUnit = perUnitPrice
-					matchedPantryItem.PriceQuantity = priceQuantity
 				}
 				if matchedPantryItem.Unit == "" {
 					matchedPantryItem.Unit = item.Unit
@@ -967,14 +1111,13 @@ func (s *shoppingListService) performCheckout(ctx context.Context, userID uuid.U
 				}
 			} else if sl.PantryID != nil {
 				newItem := &itemModel.Item{
-					ID:            uuid.New(),
-					PantryID:      *sl.PantryID,
-					AddedBy:       userID,
-					Name:          item.Name,
-					Quantity:      item.Quantity,
-					PricePerUnit:  perUnitPrice,
-					PriceQuantity: priceQuantity,
-					Unit:          item.Unit,
+					ID:           uuid.New(),
+					PantryID:     *sl.PantryID,
+					AddedBy:      userID,
+					Name:         item.Name,
+					Quantity:     item.Quantity,
+					PricePerUnit: perUnitPrice,
+					Unit:         item.Unit,
 				}
 				if err := s.itemRepo.Create(ctx, newItem); err != nil {
 					zap.L().Error("function.error", zap.String("func", "*shoppingListService.performCheckout"), zap.Error(err), zap.Any("params", __logParams))
@@ -1022,56 +1165,12 @@ func resolveUnitPrice(actualPrice, estimatedPrice float64) (result0 float64) {
 	return
 }
 
-func normalizePriceQuantity(value float64) (result0 float64) {
-	__logParams := map[string]any{"value": value}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "normalizePriceQuantity"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "normalizePriceQuantity"), zap.Any("params", __logParams))
-	if value <= 0 {
-		result0 = 1
-		return
-	}
-	result0 = value
-	return
-}
-
 func clampNonNegative(value float64) (result0 float64) {
 	if value < 0 {
 		result0 = 0
 		return
 	}
 	result0 = value
-	return
-}
-
-func sanitizeUnit(unit string) (result0 string) {
-	result0 = strings.ToLower(strings.TrimSpace(unit))
-	return
-}
-
-func requiresPriceQuantity(unit string) (result0 bool) {
-	switch sanitizeUnit(unit) {
-	case "kg", "g", "grama", "gramas", "l", "litro", "ml", "mililitro", "pacote", "pct", "pac", "cx", "caixa", "garrafa", "lata", "sache", "sachê":
-		result0 = true
-	default:
-		result0 = false
-	}
-	return
-}
-
-func deriveAIPriceQuantity(quantity float64, unit string) (result0 float64) {
-	normalizedQuantity := clampNonNegative(quantity)
-	if !requiresPriceQuantity(unit) {
-		result0 = 1
-		return
-	}
-	if normalizedQuantity <= 0 {
-		result0 = 1
-		return
-	}
-	result0 = normalizedQuantity
 	return
 }
 
@@ -1083,11 +1182,7 @@ func calculateListTotals(items []shoppingModel.ShoppingListItem) (result0 float6
 	}()
 	zap.L().Info("function.entry", zap.String("func", "calculateListTotals"), zap.Any("params", __logParams))
 	for _, item := range items {
-		priceQuantity := normalizePriceQuantity(item.PriceQuantity)
-		quantityFactor := item.Quantity / priceQuantity
-		if quantityFactor < 0 {
-			quantityFactor = 0
-		}
+		quantityFactor := clampNonNegative(item.Quantity)
 		result0 += item.EstimatedPrice * quantityFactor
 		if item.Purchased {
 			basePrice := resolveUnitPrice(item.ActualPrice, item.EstimatedPrice)
@@ -1288,8 +1383,6 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		id := item.PantryItemID.String()
 		pantryItemID = &id
 	}
-	priceQuantity := normalizePriceQuantity(item.PriceQuantity)
-	item.PriceQuantity = priceQuantity
 	result0 = &dto.ShoppingListItemResponseDTO{
 		ID:             item.ID.String(),
 		ShoppingListID: item.ShoppingListID.String(),
@@ -1297,12 +1390,10 @@ func (s *shoppingListService) convertItemToResponseDTO(item *shoppingModel.Shopp
 		Quantity:       item.Quantity,
 		Unit:           item.Unit,
 		EstimatedPrice: item.EstimatedPrice,
-		PriceQuantity:  priceQuantity,
 		ActualPrice:    item.ActualPrice,
 		Category:       item.Category,
 		Priority:       item.Priority,
 		Purchased:      item.Purchased,
-		Notes:          item.Notes,
 		Source:         item.Source,
 		PantryItemID:   pantryItemID,
 		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
@@ -1436,7 +1527,6 @@ INSTRUÇÕES:
 3. Priorize itens essenciais e de qualidade
 4. Para produtos sem preço histórico, pesquise preços atuais no Brasil
 5. Considere a proporção família/orçamento
-6. Inclua uma breve explicação para cada item
 
 FORMATO DE RESPOSTA (JSON):
 {
@@ -1447,8 +1537,7 @@ FORMATO DE RESPOSTA (JSON):
       "unit": "unidade/kg/litro",
       "estimated_price": 0.00,
 			"category": "categoria",
-      "priority": 1,
-      "reason": "motivo da inclusão"
+			"priority": 1
     }
   ],
   "reasoning": "Explicação geral da lista",
@@ -1463,7 +1552,7 @@ Crie a lista agora:`
 	return
 }
 
-func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, preferences shoppingPreferences, aiResponse string) (result0 *shoppingModel.ShoppingList, result1 error) {
+func (s *shoppingListService) parseAIResponse(ctx context.Context, userID uuid.UUID, input dto.GenerateAIShoppingListDTO, budget float64, preferences shoppingPreferences, aiResponse string) (result0 *shoppingModel.ShoppingList, result1 error) {
 	__logParams := map[string]any{"s": s, "userID": userID, "input": input, "budget": budget, "preferences": preferences, "aiResponse": aiResponse}
 	__logStart := time.Now()
 	defer func() {
@@ -1472,17 +1561,15 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Any("params", __logParams))
 	var aiList AIShoppingListResponse
 
-	jsonStart := strings.Index(aiResponse, "{")
-	jsonEnd := strings.LastIndex(aiResponse, "}")
-	if jsonStart == -1 || jsonEnd == -1 {
+	jsonPayload, err := s.prepareAIJSONPayload(ctx, aiResponse, input, budget, preferences)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
-		result1 = domain.ErrAIResponseInvalid
+		result1 = err
 		return
 	}
 
-	jsonResponse := aiResponse[jsonStart : jsonEnd+1]
-
-	if err := json.Unmarshal([]byte(jsonResponse), &aiList); err != nil {
+	if err := json.Unmarshal([]byte(jsonPayload), &aiList); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*shoppingListService.parseAIResponse"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = nil
 		result1 = fmt.Errorf("%w: %v", domain.ErrAIResponseInvalid, err)
@@ -1506,17 +1593,9 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 	// Convert AI items to shopping list items
 	for _, aiItem := range aiList.Items {
 		quantity := clampNonNegative(aiItem.Quantity)
-		priceQuantity := deriveAIPriceQuantity(quantity, aiItem.Unit)
-		quantityFactor := 1.0
-		if priceQuantity > 0 {
-			quantityFactor = quantity / priceQuantity
-		}
-		if quantityFactor <= 0 {
-			quantityFactor = 1
-		}
 		estimatedPrice := clampNonNegative(aiItem.EstimatedPrice)
-		if estimatedPrice > 0 {
-			estimatedPrice = estimatedPrice / quantityFactor
+		if quantity > 0 {
+			estimatedPrice = estimatedPrice / quantity
 		}
 
 		item := shoppingModel.ShoppingListItem{
@@ -1524,10 +1603,8 @@ func (s *shoppingListService) parseAIResponse(userID uuid.UUID, input dto.Genera
 			Quantity:       quantity,
 			Unit:           aiItem.Unit,
 			EstimatedPrice: estimatedPrice,
-			PriceQuantity:  priceQuantity,
 			Category:       aiItem.Category,
 			Priority:       aiItem.Priority,
-			Notes:          aiItem.Reason,
 			Source:         "ai_suggestion",
 		}
 

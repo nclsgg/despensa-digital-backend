@@ -79,12 +79,10 @@ type ShoppingListItem struct {
 	Quantity       float64        `gorm:"not null" json:"quantity"`
 	Unit           string         `gorm:"not null" json:"unit"`
 	EstimatedPrice float64        `gorm:"type:numeric" json:"estimated_price"`
-	PriceQuantity  float64        `gorm:"type:numeric;default:1" json:"price_quantity"`
 	ActualPrice    float64        `gorm:"type:numeric" json:"actual_price"`
 	Category       string         `json:"category"`
 	Priority       int            `gorm:"default:3" json:"priority"` // 1=high, 2=medium, 3=low
 	Purchased      bool           `gorm:"default:false;index:idx_shopping_item_list,priority:2" json:"purchased"`
-	Notes          string         `json:"notes"`
 	Source         string         `json:"source"` // pantry_history, ai_suggestion, manual
 	PantryItemID   *uuid.UUID     `gorm:"type:uuid;index" json:"pantry_item_id"`
 	CreatedAt      time.Time      `gorm:"autoCreateTime" json:"created_at"`

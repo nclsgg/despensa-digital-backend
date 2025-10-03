@@ -78,12 +78,31 @@ func MigrateItems(db *gorm.DB) {
 	db.Exec(`
 		DO $$
 		BEGIN
-			IF NOT EXISTS (
+			-- Remove a coluna total_price antiga se existir
+			IF EXISTS (
 				SELECT 1 FROM information_schema.columns 
 				WHERE table_name='items' AND column_name='total_price'
 			) THEN
-				EXECUTE 'ALTER TABLE items ADD COLUMN total_price numeric GENERATED ALWAYS AS (quantity * price_per_unit) STORED';
+				EXECUTE 'ALTER TABLE items DROP COLUMN total_price';
 			END IF;
+
+			-- Remove coluna price_quantity se existir (não é mais utilizada)
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name='items' AND column_name='price_quantity'
+			) THEN
+				EXECUTE 'ALTER TABLE items DROP COLUMN price_quantity';
+			END IF;
+
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name='shopping_list_items' AND column_name='price_quantity'
+			) THEN
+				EXECUTE 'ALTER TABLE shopping_list_items DROP COLUMN price_quantity';
+			END IF;
+			
+			-- Cria a coluna com a fórmula atualizada: quantidade * preço por unidade
+			EXECUTE 'ALTER TABLE items ADD COLUMN total_price numeric GENERATED ALWAYS AS ((quantity * price_per_unit)) STORED';
 		END
 		$$;
 	`)
