@@ -6,6 +6,7 @@ import (
 
 	"github.com/nclsgg/despensa-digital/backend/config"
 	authModel "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	creditsModel "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/model"
 	itemModel "github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	profileModel "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/model"
@@ -69,6 +70,8 @@ func MigrateItems(db *gorm.DB) {
 		&profileModel.Profile{},
 		&shoppingListModel.ShoppingList{},
 		&shoppingListModel.ShoppingListItem{},
+		&creditsModel.CreditWallet{},
+		&creditsModel.CreditTransaction{},
 	)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "MigrateItems"), zap.Error(err), zap.Any("params", __logParams))

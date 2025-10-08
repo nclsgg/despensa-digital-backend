@@ -1,23 +1,30 @@
 package handler
 
 import (
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	creditsDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/model"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
-	"time"
 )
 
 // LLMHandler handles LLM-related HTTP requests
 type LLMHandler struct {
-	llmService *service.LLMServiceImpl
+	llmService    *service.LLMServiceImpl
+	creditService creditsDomain.CreditService
 }
 
 // NewLLMHandler creates a new LLM handler
-func NewLLMHandler(llmService *service.LLMServiceImpl) (result0 *LLMHandler) {
-	__logParams := map[string]any{"llmService": llmService}
+func NewLLMHandler(llmService *service.LLMServiceImpl, creditService creditsDomain.CreditService) (result0 *LLMHandler) {
+	__logParams := map[string]any{"llmService": llmService, "creditService": creditService}
 	__logStart :=
 
 		// ProcessChatRequest godoc
@@ -39,7 +46,8 @@ func NewLLMHandler(llmService *service.LLMServiceImpl) (result0 *LLMHandler) {
 	}()
 	zap.L().Info("function.entry", zap.String("func", "NewLLMHandler"), zap.Any("params", __logParams))
 	result0 = &LLMHandler{
-		llmService: llmService,
+		llmService:    llmService,
+		creditService: creditService,
 	}
 	return
 }
@@ -58,6 +66,12 @@ func (h *LLMHandler) ProcessChatRequest(c *gin.Context) {
 	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Any("params", __logParams))
 	var request dto.ChatRequestDTO
 
+	userID, ok := extractUserID(c)
+	if !ok {
+		response.Unauthorized(c, "user not found in context")
+		return
+	}
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
@@ -68,6 +82,10 @@ func (h *LLMHandler) ProcessChatRequest(c *gin.Context) {
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessChatRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro ao processar requisição LLM: "+err.Error())
+		return
+	}
+
+	if !h.consumeCredit(c, userID, "AI request - llm chat") {
 		return
 	}
 
@@ -102,6 +120,12 @@ func (h *LLMHandler) ProcessLLMRequest(c *gin.Context) {
 	zap.L().Info("function.entry", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Any("params", __logParams))
 	var request dto.LLMRequestDTO
 
+	userID, ok := extractUserID(c)
+	if !ok {
+		response.Unauthorized(c, "user not found in context")
+		return
+	}
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
@@ -112,6 +136,10 @@ func (h *LLMHandler) ProcessLLMRequest(c *gin.Context) {
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*LLMHandler.ProcessLLMRequest"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro ao processar requisição LLM: "+err.Error())
+		return
+	}
+
+	if !h.consumeCredit(c, userID, "AI request - llm process") {
 		return
 	}
 
@@ -361,6 +389,11 @@ func (h *LLMHandler) TestProvider(c *gin.Context) {
 
 		// Create test request
 		zap.Any("params", __logParams))
+	userID, ok := extractUserID(c)
+	if !ok {
+		response.Unauthorized(c, "user not found in context")
+		return
+	}
 	providerName := c.Query("provider_name")
 	if providerName == "" {
 		providerName = h.llmService.GetCurrentProvider()
@@ -391,6 +424,10 @@ func (h *LLMHandler) TestProvider(c *gin.Context) {
 		return
 	}
 
+	if !h.consumeCredit(c, userID, "AI request - provider test") {
+		return
+	}
+
 	result := map[string]interface{}{
 		"provider":      providerName,
 		"test_message":  testMessage,
@@ -401,4 +438,40 @@ func (h *LLMHandler) TestProvider(c *gin.Context) {
 	}
 
 	response.OK(c, result)
+}
+
+func (h *LLMHandler) consumeCredit(c *gin.Context, userID uuid.UUID, description string) bool {
+	err := h.creditService.ConsumeCredit(c.Request.Context(), userID, description)
+	if err == nil {
+		return true
+	}
+
+	switch {
+	case errors.Is(err, creditsDomain.ErrInsufficientCredits):
+		response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to perform this action")
+	default:
+		zap.L().Error("llm_handler.consume_credit.failed", zap.String("user_id", userID.String()), zap.Error(err))
+		response.InternalError(c, "failed to consume credits")
+	}
+	return false
+}
+
+func extractUserID(c *gin.Context) (uuid.UUID, bool) {
+	value, exists := c.Get("userID")
+	if !exists {
+		return uuid.Nil, false
+	}
+
+	switch v := value.(type) {
+	case uuid.UUID:
+		return v, true
+	case string:
+		parsed, err := uuid.Parse(strings.TrimSpace(v))
+		if err != nil {
+			return uuid.Nil, false
+		}
+		return parsed, true
+	default:
+		return uuid.Nil, false
+	}
 }

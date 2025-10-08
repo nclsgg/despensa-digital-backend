@@ -14,6 +14,9 @@ import (
 	authHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/handler"
 	authRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/repository"
 	authService "github.com/nclsgg/despensa-digital/backend/internal/modules/auth/service"
+	creditsHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/handler"
+	creditsRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/repository"
+	creditsService "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/service"
 	itemHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/item/handler"
 	itemRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/item/repository"
 	itemService "github.com/nclsgg/despensa-digital/backend/internal/modules/item/service"
@@ -65,6 +68,9 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	})
 
 	userRepoInstance := userRepo.NewUserRepository(db)
+	creditRepoInstance := creditsRepo.NewCreditRepository(db)
+	creditServiceInstance := creditsService.NewCreditService(creditRepoInstance)
+	creditHandlerInstance := creditsHandler.NewCreditHandler(creditServiceInstance)
 
 	authRepoInstance := authRepo.NewAuthRepository(db)
 	authServiceInstance := authService.NewAuthService(authRepoInstance, cfg)
@@ -96,9 +102,18 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		userGroup.GET("/all", middleware.RoleMiddleware([]string{"admin"}), userHandlerInstance.GetAllUsers)
 	}
 
+	creditsGroup := r.Group("/api/v1/credits")
+	creditsGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
+	creditsGroup.Use(middleware.ProfileCompleteMiddleware())
+	{
+		creditsGroup.GET("/wallet", creditHandlerInstance.GetWallet)
+		creditsGroup.GET("/transactions", creditHandlerInstance.ListTransactions)
+		creditsGroup.POST("/add", middleware.RoleMiddleware([]string{"admin"}), creditHandlerInstance.AddCredits)
+	}
+
 	// LLM routes (needed for recipe handlers)
 	llmServiceInstance := llmService.NewLLMService()
-	llmHandlerInstance := llmHandler.NewLLMHandler(llmServiceInstance)
+	llmHandlerInstance := llmHandler.NewLLMHandler(llmServiceInstance, creditServiceInstance)
 
 	// Recipe routes setup (needed for pantry ingredients endpoint)
 	pantryRepoInstance := pantryRepo.NewPantryRepository(db)
@@ -120,14 +135,14 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		profileRepoInstance,
 		llmServiceInstance,
 	)
-	shoppingListHandlerInstance := shoppingListHandler.NewShoppingListHandler(shoppingListServiceInstance)
+	shoppingListHandlerInstance := shoppingListHandler.NewShoppingListHandler(shoppingListServiceInstance, creditServiceInstance)
 
 	recipeServiceInstance := recipeService.NewRecipeService(
 		llmServiceInstance,
 		itemRepoInstance,
 		pantryServiceInstance,
 	)
-	recipeHandlerInstance := recipeHandler.NewRecipeHandler(recipeServiceInstance, llmServiceInstance)
+	recipeHandlerInstance := recipeHandler.NewRecipeHandler(recipeServiceInstance, llmServiceInstance, creditServiceInstance)
 
 	// Pantry routes
 	pantryHandlerInstance := pantryHandler.NewPantryHandler(pantryServiceInstance, itemServiceInstance)
@@ -187,14 +202,14 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	llmGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	llmGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
-		llmGroup.POST("/chat", llmHandlerInstance.ProcessChatRequest)
-		llmGroup.POST("/process", llmHandlerInstance.ProcessLLMRequest)
+		llmGroup.POST("/chat", middleware.CreditGuardMiddleware(creditServiceInstance), llmHandlerInstance.ProcessChatRequest)
+		llmGroup.POST("/process", middleware.CreditGuardMiddleware(creditServiceInstance), llmHandlerInstance.ProcessLLMRequest)
 		llmGroup.POST("/prompt/build", llmHandlerInstance.BuildPrompt)
 		llmGroup.GET("/providers/status", llmHandlerInstance.GetProviderStatus)
 		llmGroup.POST("/providers/config", llmHandlerInstance.ConfigureProvider)
 		llmGroup.GET("/providers/available", llmHandlerInstance.GetAvailableProviders)
 		llmGroup.POST("/providers/switch", llmHandlerInstance.SwitchProvider)
-		llmGroup.POST("/providers/test", llmHandlerInstance.TestProvider)
+		llmGroup.POST("/providers/test", middleware.CreditGuardMiddleware(creditServiceInstance), llmHandlerInstance.TestProvider)
 	}
 
 	// Profile routes
@@ -220,17 +235,17 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		shoppingListGroup.POST("/:id/items", shoppingListHandlerInstance.CreateShoppingListItem)
 		shoppingListGroup.PUT("/:id/items/:itemId", shoppingListHandlerInstance.UpdateShoppingListItem)
 		shoppingListGroup.DELETE("/:id/items/:itemId", shoppingListHandlerInstance.DeleteShoppingListItem)
-		shoppingListGroup.POST("/generate", shoppingListHandlerInstance.GenerateAIShoppingList)
+		shoppingListGroup.POST("/generate", middleware.CreditGuardMiddleware(creditServiceInstance), shoppingListHandlerInstance.GenerateAIShoppingList)
 	}
 
 	recipeGroup := r.Group("/api/v1/recipes")
 	recipeGroup.Use(middleware.AuthMiddleware(cfg, userRepoInstance))
 	recipeGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
-		recipeGroup.POST("/generate", recipeHandlerInstance.GenerateRecipe)
+		recipeGroup.POST("/generate", middleware.CreditGuardMiddleware(creditServiceInstance), recipeHandlerInstance.GenerateRecipe)
 		recipeGroup.GET("/ingredients", recipeHandlerInstance.GetAvailableIngredients)
 		recipeGroup.GET("/pantries/:pantry_id/ingredients", recipeHandlerInstance.GetAvailableIngredients)
-		recipeGroup.POST("/chat", recipeHandlerInstance.ChatWithLLM)
+		recipeGroup.POST("/chat", middleware.CreditGuardMiddleware(creditServiceInstance), recipeHandlerInstance.ChatWithLLM)
 		recipeGroup.GET("/providers", recipeHandlerInstance.GetLLMProviders)
 		recipeGroup.POST("/providers/set", recipeHandlerInstance.SetLLMProvider)
 		recipeGroup.POST("/tokens/estimate", recipeHandlerInstance.EstimateTokens)

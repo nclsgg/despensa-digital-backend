@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	creditsDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
@@ -19,6 +20,7 @@ import (
 type RecipeHandler struct {
 	recipeService recipeDomain.RecipeService
 	llmService    *service.LLMServiceImpl
+	creditService creditsDomain.CreditService
 }
 
 func captureContextFields(c *gin.Context) map[string]any {
@@ -56,8 +58,9 @@ func captureContextFields(c *gin.Context) map[string]any {
 func NewRecipeHandler(
 	recipeService recipeDomain.RecipeService,
 	llmService *service.LLMServiceImpl,
+	creditService creditsDomain.CreditService,
 ) (result0 *RecipeHandler) {
-	__logParams := map[string]any{"recipeService": recipeService, "llmService": llmService}
+	__logParams := map[string]any{"recipeService": recipeService, "llmService": llmService, "creditService": creditService}
 	__logStart := time.Now()
 	defer func() {
 		zap.L().Info("function.exit", zap.String("func", "NewRecipeHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
@@ -66,6 +69,7 @@ func NewRecipeHandler(
 	result0 = &RecipeHandler{
 		recipeService: recipeService,
 		llmService:    llmService,
+		creditService: creditService,
 	}
 	return
 }
@@ -181,6 +185,17 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		return
 	}
 
+	if creditErr := h.creditService.ConsumeCredit(c.Request.Context(), userID, "AI request - recipe generation"); creditErr != nil {
+		switch {
+		case errors.Is(creditErr, creditsDomain.ErrInsufficientCredits):
+			response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to generate a recipe")
+		default:
+			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(creditErr), zap.Any("params", __logParams))
+			response.InternalError(c, "Failed to consume credit after recipe generation")
+		}
+		return
+	}
+
 	response.OK(c, recipe)
 }
 
@@ -267,6 +282,28 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Any("params", __logParams))
 	var request dto.LLMRequestDTO
 
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	var userID uuid.UUID
+	switch v := userIDInterface.(type) {
+	case uuid.UUID:
+		userID = v
+	case string:
+		parsed, err := uuid.Parse(v)
+		if err != nil {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+		userID = parsed
+	default:
+		response.Unauthorized(c, "user_id inválido no contexto")
+		return
+	}
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
@@ -277,6 +314,17 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
 		response.InternalError(c, "Erro na requisição ao LLM: "+err.Error())
+		return
+	}
+
+	if creditErr := h.creditService.ConsumeCredit(c.Request.Context(), userID, "AI request - recipe chat"); creditErr != nil {
+		switch {
+		case errors.Is(creditErr, creditsDomain.ErrInsufficientCredits):
+			response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to chat with the recipe assistant")
+		default:
+			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(creditErr), zap.Any("params", __logParams))
+			response.InternalError(c, "Failed to consume credits for recipe chat")
+		}
 		return
 	}
 

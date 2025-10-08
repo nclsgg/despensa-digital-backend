@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	creditsDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/credits/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
@@ -16,10 +17,11 @@ import (
 
 type ShoppingListHandler struct {
 	shoppingListService domain.ShoppingListService
+	creditService       creditsDomain.CreditService
 }
 
-func NewShoppingListHandler(shoppingListService domain.ShoppingListService) (result0 *ShoppingListHandler) {
-	__logParams := map[string]any{"shoppingListService": shoppingListService}
+func NewShoppingListHandler(shoppingListService domain.ShoppingListService, creditService creditsDomain.CreditService) (result0 *ShoppingListHandler) {
+	__logParams := map[string]any{"shoppingListService": shoppingListService, "creditService": creditService}
 	__logStart := time.Now(
 
 	// CreateShoppingList godoc
@@ -42,6 +44,7 @@ func NewShoppingListHandler(shoppingListService domain.ShoppingListService) (res
 	zap.L().Info("function.entry", zap.String("func", "NewShoppingListHandler"), zap.Any("params", __logParams))
 	result0 = &ShoppingListHandler{
 		shoppingListService: shoppingListService,
+		creditService:       creditService,
 	}
 	return
 }
@@ -522,6 +525,17 @@ func (h *ShoppingListHandler) GenerateAIShoppingList(c *gin.Context) {
 			response.Fail(c, http.StatusNotFound, "SHOPPING_LIST_NOT_FOUND", "Shopping list not found")
 		default:
 			response.InternalError(c, "Failed to generate AI shopping list")
+		}
+		return
+	}
+
+	if creditErr := h.creditService.ConsumeCredit(c.Request.Context(), userUUID, "AI request - shopping_list generation"); creditErr != nil {
+		switch {
+		case errors.Is(creditErr, creditsDomain.ErrInsufficientCredits):
+			response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to generate a shopping list")
+		default:
+			zap.L().Error("function.error", zap.String("func", "*ShoppingListHandler.GenerateAIShoppingList"), zap.Error(creditErr), zap.Any("params", __logParams))
+			response.InternalError(c, "Failed to consume credit for AI shopping list")
 		}
 		return
 	}
