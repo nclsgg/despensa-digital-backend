@@ -16,32 +16,37 @@ import (
 	pantrySvc "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
 	recipeDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/dto"
+	recipeModel "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/model"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type recipeService struct {
-	llmService     *llmSvc.LLMServiceImpl
-	itemRepository itemDomain.ItemRepository
-	pantryService  pantryDomain.PantryService
-	promptBuilder  *llmSvc.PromptBuilderImpl
+	llmService       *llmSvc.LLMServiceImpl
+	itemRepository   itemDomain.ItemRepository
+	pantryService    pantryDomain.PantryService
+	recipeRepository recipeDomain.RecipeRepository
+	promptBuilder    *llmSvc.PromptBuilderImpl
 }
 
 func NewRecipeService(
 	llmService *llmSvc.LLMServiceImpl,
 	itemRepository itemDomain.ItemRepository,
 	pantryService pantryDomain.PantryService,
+	recipeRepository recipeDomain.RecipeRepository,
 ) (result0 recipeDomain.RecipeService) {
-	__logParams := map[string]any{"llmService": llmService, "itemRepository": itemRepository, "pantryService": pantryService}
+	__logParams := map[string]any{"llmService": llmService, "itemRepository": itemRepository, "pantryService": pantryService, "recipeRepository": recipeRepository}
 	__logStart := time.Now()
 	defer func() {
 		zap.L().Info("function.exit", zap.String("func", "NewRecipeService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
 	}()
 	zap.L().Info("function.entry", zap.String("func", "NewRecipeService"), zap.Any("params", __logParams))
 	result0 = &recipeService{
-		llmService:     llmService,
-		itemRepository: itemRepository,
-		pantryService:  pantryService,
-		promptBuilder:  llmSvc.NewPromptBuilder(),
+		llmService:       llmService,
+		itemRepository:   itemRepository,
+		pantryService:    pantryService,
+		recipeRepository: recipeRepository,
+		promptBuilder:    llmSvc.NewPromptBuilder(),
 	}
 	return
 }
@@ -477,5 +482,377 @@ func cleanStringSlice(values []string) (result0 []string) {
 		}
 	}
 	result0 = cleaned
+	return
+}
+
+// GenerateMultipleRecipes generates multiple recipes based on pantry ingredients
+func (rs *recipeService) GenerateMultipleRecipes(ctx context.Context, request *llmDTO.RecipeRequestDTO, userID uuid.UUID, count int) (result0 []*llmDTO.RecipeResponseDTO, result1 error) {
+	__logParams := map[string]any{"rs": rs, "ctx": ctx, "request": request, "userID": userID, "count": count}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.GenerateMultipleRecipes"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.GenerateMultipleRecipes"), zap.Any("params", __logParams))
+
+	if count < 1 || count > 10 {
+		result0 = nil
+		result1 = fmt.Errorf("%w: count must be between 1 and 10", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	recipes := make([]*llmDTO.RecipeResponseDTO, 0, count)
+	for i := 0; i < count; i++ {
+		recipe, err := rs.GenerateRecipe(ctx, request, userID)
+		if err != nil {
+			zap.L().Error("function.error", zap.String("func", "*recipeService.GenerateMultipleRecipes"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = nil
+			result1 = err
+			return
+		}
+		recipes = append(recipes, recipe)
+	}
+
+	result0 = recipes
+	result1 = nil
+	return
+}
+
+// SaveRecipe saves a single recipe to the database
+func (rs *recipeService) SaveRecipe(ctx context.Context, recipeDTO *recipeDTO.SaveRecipeDTO, userID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"rs": rs, "ctx": ctx, "recipeDTO": recipeDTO, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.SaveRecipe"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.SaveRecipe"), zap.Any("params", __logParams))
+
+	if err := rs.validateSaveRecipeDTO(recipeDTO); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*recipeService.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	recipe, err := rs.convertSaveRecipeDTOToModel(recipeDTO, userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*recipeService.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = fmt.Errorf("%w: %v", recipeDomain.ErrInvalidRecipeData, err)
+		return
+	}
+
+	if err := rs.recipeRepository.Create(ctx, recipe); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*recipeService.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	result0 = nil
+	return
+}
+
+// SaveMultipleRecipes saves multiple recipes to the database atomically
+func (rs *recipeService) SaveMultipleRecipes(ctx context.Context, recipeDTOs []*recipeDTO.SaveRecipeDTO, userID uuid.UUID) (result0 error) {
+	__logParams := map[string]any{"rs": rs, "ctx": ctx, "recipeDTOs": recipeDTOs, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.SaveMultipleRecipes"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.SaveMultipleRecipes"), zap.Any("params", __logParams))
+
+	if len(recipeDTOs) == 0 {
+		result0 = fmt.Errorf("%w: at least one recipe is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	recipes := make([]*recipeModel.Recipe, 0, len(recipeDTOs))
+	for _, dto := range recipeDTOs {
+		if err := rs.validateSaveRecipeDTO(dto); err != nil {
+			zap.L().Error("function.error", zap.String("func", "*recipeService.SaveMultipleRecipes"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = err
+			return
+		}
+
+		recipe, err := rs.convertSaveRecipeDTOToModel(dto, userID)
+		if err != nil {
+			zap.L().Error("function.error", zap.String("func", "*recipeService.SaveMultipleRecipes"), zap.Error(err), zap.Any("params", __logParams))
+			result0 = fmt.Errorf("%w: %v", recipeDomain.ErrInvalidRecipeData, err)
+			return
+		}
+		recipes = append(recipes, recipe)
+	}
+
+	if err := rs.recipeRepository.CreateMany(ctx, recipes); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*recipeService.SaveMultipleRecipes"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = err
+		return
+	}
+
+	result0 = nil
+	return
+}
+
+// GetRecipeByID retrieves a single recipe by ID
+func (rs *recipeService) GetRecipeByID(ctx context.Context, recipeID uuid.UUID, userID uuid.UUID) (result0 *recipeDTO.RecipeDetailDTO, result1 error) {
+	__logParams := map[string]any{"rs": rs, "ctx": ctx, "recipeID": recipeID, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.GetRecipeByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.GetRecipeByID"), zap.Any("params", __logParams))
+
+	recipe, err := rs.recipeRepository.FindByID(ctx, recipeID, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			result0 = nil
+			result1 = recipeDomain.ErrRecipeNotFound
+			return
+		}
+		zap.L().Error("function.error", zap.String("func", "*recipeService.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+
+	result0 = rs.convertModelToRecipeDetailDTO(recipe)
+	result1 = nil
+	return
+}
+
+// GetUserRecipes retrieves all recipes for a user
+func (rs *recipeService) GetUserRecipes(ctx context.Context, userID uuid.UUID) (result0 []*recipeDTO.RecipeDetailDTO, result1 error) {
+	__logParams := map[string]any{"rs": rs, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.GetUserRecipes"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.GetUserRecipes"), zap.Any("params", __logParams))
+
+	recipes, err := rs.recipeRepository.FindByUserID(ctx, userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*recipeService.GetUserRecipes"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+
+	recipeDTOs := make([]*recipeDTO.RecipeDetailDTO, 0, len(recipes))
+	for _, recipe := range recipes {
+		recipeDTOs = append(recipeDTOs, rs.convertModelToRecipeDetailDTO(recipe))
+	}
+
+	result0 = recipeDTOs
+	result1 = nil
+	return
+}
+
+// Helper methods
+
+func (rs *recipeService) validateSaveRecipeDTO(dto *recipeDTO.SaveRecipeDTO) (result0 error) {
+	__logParams := map[string]any{"rs": rs, "dto": dto}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.validateSaveRecipeDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.validateSaveRecipeDTO"), zap.Any("params", __logParams))
+
+	if dto == nil {
+		result0 = fmt.Errorf("%w: recipe data is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	if dto.ID == "" {
+		result0 = fmt.Errorf("%w: recipe ID is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	if _, err := uuid.Parse(dto.ID); err != nil {
+		result0 = fmt.Errorf("%w: invalid recipe ID format", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	if dto.Title == "" {
+		result0 = fmt.Errorf("%w: title is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	if len(dto.Ingredients) == 0 {
+		result0 = fmt.Errorf("%w: at least one ingredient is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	if len(dto.Instructions) == 0 {
+		result0 = fmt.Errorf("%w: at least one instruction is required", recipeDomain.ErrInvalidRequest)
+		return
+	}
+
+	result0 = nil
+	return
+}
+
+func (rs *recipeService) convertSaveRecipeDTOToModel(dto *recipeDTO.SaveRecipeDTO, userID uuid.UUID) (result0 *recipeModel.Recipe, result1 error) {
+	__logParams := map[string]any{"rs": rs, "dto": dto, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.convertSaveRecipeDTOToModel"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.convertSaveRecipeDTOToModel"), zap.Any("params", __logParams))
+
+	recipeID, err := uuid.Parse(dto.ID)
+	if err != nil {
+		result0 = nil
+		result1 = err
+		return
+	}
+
+	// Convert ingredients
+	ingredients := make([]recipeModel.RecipeIngredient, 0, len(dto.Ingredients))
+	for _, ing := range dto.Ingredients {
+		ingredients = append(ingredients, recipeModel.RecipeIngredient{
+			Name:        ing.Name,
+			Amount:      ing.Amount,
+			Unit:        ing.Unit,
+			Available:   ing.Available,
+			Alternative: ing.Alternative,
+		})
+	}
+
+	// Convert instructions
+	instructions := make([]recipeModel.RecipeInstruction, 0, len(dto.Instructions))
+	for _, inst := range dto.Instructions {
+		instructions = append(instructions, recipeModel.RecipeInstruction{
+			Step:        inst.Step,
+			Description: inst.Description,
+			Time:        inst.Time,
+		})
+	}
+
+	// Convert dietary restrictions
+	dietaryRestrictions := dto.DietaryRestrictions
+	if dietaryRestrictions == nil {
+		dietaryRestrictions = []string{}
+	}
+
+	// Convert tips
+	tips := dto.Tips
+	if tips == nil {
+		tips = []string{}
+	}
+
+	// Convert nutrition info
+	nutritionInfo := recipeModel.RecipeNutrition{
+		Calories:      dto.NutritionInfo.Calories,
+		Protein:       dto.NutritionInfo.Protein,
+		Carbohydrates: dto.NutritionInfo.Carbohydrates,
+		Fat:           dto.NutritionInfo.Fat,
+	}
+
+	// Parse generated_at timestamp
+	var generatedAt time.Time
+	if dto.GeneratedAt != "" {
+		generatedAt, err = time.Parse(time.RFC3339, dto.GeneratedAt)
+		if err != nil {
+			// Try alternative formats
+			generatedAt, err = time.Parse("2006-01-02T15:04:05Z07:00", dto.GeneratedAt)
+			if err != nil {
+				generatedAt = time.Now().UTC()
+			}
+		}
+	} else {
+		generatedAt = time.Now().UTC()
+	}
+
+	recipe := &recipeModel.Recipe{
+		ID:                  recipeID,
+		UserID:              userID,
+		Title:               dto.Title,
+		Description:         dto.Description,
+		Ingredients:         recipeModel.RecipeIngredientsJSON(ingredients),
+		Instructions:        recipeModel.RecipeInstructionsJSON(instructions),
+		CookingTime:         dto.CookingTime,
+		PreparationTime:     dto.PreparationTime,
+		TotalTime:           dto.TotalTime,
+		ServingSize:         dto.ServingSize,
+		Difficulty:          dto.Difficulty,
+		MealType:            dto.MealType,
+		Cuisine:             dto.Cuisine,
+		DietaryRestrictions: recipeModel.RecipeDietaryJSON(dietaryRestrictions),
+		NutritionInfo:       recipeModel.RecipeNutritionJSON(nutritionInfo),
+		Tips:                recipeModel.RecipeTipsJSON(tips),
+		GeneratedAt:         generatedAt,
+	}
+
+	result0 = recipe
+	result1 = nil
+	return
+}
+
+func (rs *recipeService) convertModelToRecipeDetailDTO(recipe *recipeModel.Recipe) (result0 *recipeDTO.RecipeDetailDTO) {
+	__logParams := map[string]any{"rs": rs, "recipe": recipe}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*recipeService.convertModelToRecipeDetailDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*recipeService.convertModelToRecipeDetailDTO"), zap.Any("params", __logParams))
+
+	// Convert ingredients
+	ingredients := make([]recipeDTO.RecipeIngredientDetailDTO, 0, len(recipe.Ingredients))
+	for _, ing := range recipe.Ingredients {
+		ingredients = append(ingredients, recipeDTO.RecipeIngredientDetailDTO{
+			Name:        ing.Name,
+			Amount:      ing.Amount,
+			Unit:        ing.Unit,
+			Available:   ing.Available,
+			Alternative: ing.Alternative,
+		})
+	}
+
+	// Convert instructions
+	instructions := make([]recipeDTO.RecipeInstructionDetailDTO, 0, len(recipe.Instructions))
+	for _, inst := range recipe.Instructions {
+		instructions = append(instructions, recipeDTO.RecipeInstructionDetailDTO{
+			Step:        inst.Step,
+			Description: inst.Description,
+			Time:        inst.Time,
+		})
+	}
+
+	// Convert dietary restrictions
+	dietaryRestrictions := []string(recipe.DietaryRestrictions)
+	if dietaryRestrictions == nil {
+		dietaryRestrictions = []string{}
+	}
+
+	// Convert tips
+	tips := []string(recipe.Tips)
+	if tips == nil {
+		tips = []string{}
+	}
+
+	// Convert nutrition info
+	nutritionInfo := recipeDTO.RecipeNutritionDetailDTO{
+		Calories:      recipe.NutritionInfo.Calories,
+		Protein:       recipe.NutritionInfo.Protein,
+		Carbohydrates: recipe.NutritionInfo.Carbohydrates,
+		Fat:           recipe.NutritionInfo.Fat,
+	}
+
+	result0 = &recipeDTO.RecipeDetailDTO{
+		ID:                  recipe.ID.String(),
+		Title:               recipe.Title,
+		Description:         recipe.Description,
+		Ingredients:         ingredients,
+		Instructions:        instructions,
+		CookingTime:         recipe.CookingTime,
+		PreparationTime:     recipe.PreparationTime,
+		TotalTime:           recipe.TotalTime,
+		ServingSize:         recipe.ServingSize,
+		Difficulty:          recipe.Difficulty,
+		MealType:            recipe.MealType,
+		Cuisine:             recipe.Cuisine,
+		DietaryRestrictions: dietaryRestrictions,
+		NutritionInfo:       nutritionInfo,
+		Tips:                tips,
+		GeneratedAt:         recipe.GeneratedAt,
+		CreatedAt:           recipe.CreatedAt,
+	}
 	return
 }

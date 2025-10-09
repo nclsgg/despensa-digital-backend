@@ -10,6 +10,7 @@ import (
 	itemModel "github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryModel "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/model"
 	profileModel "github.com/nclsgg/despensa-digital/backend/internal/modules/profile/model"
+	recipeModel "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/model"
 	shoppingListModel "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/model"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -72,6 +73,7 @@ func MigrateItems(db *gorm.DB) {
 		&shoppingListModel.ShoppingListItem{},
 		&creditsModel.CreditWallet{},
 		&creditsModel.CreditTransaction{},
+		&recipeModel.Recipe{},
 	)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "MigrateItems"), zap.Error(err), zap.Any("params", __logParams))

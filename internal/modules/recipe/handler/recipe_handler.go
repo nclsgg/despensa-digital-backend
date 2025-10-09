@@ -12,6 +12,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
+	recipeDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/dto"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
 )
@@ -123,6 +124,11 @@ func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
 		response.InternalError(c, "Received invalid response from recipe generator")
 	case errors.Is(err, recipeDomain.ErrLLMRequest):
 		response.InternalError(c, "Failed to process recipe request")
+	case errors.Is(err, recipeDomain.ErrRecipeNotFound):
+		response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Recipe not found")
+	case errors.Is(err, recipeDomain.ErrInvalidRecipeData):
+		detail := extractDetail(err, recipeDomain.ErrInvalidRecipeData, "Invalid recipe data")
+		response.BadRequest(c, detail)
 	default:
 		response.InternalError(c, "Unexpected error while processing recipe request")
 	}
@@ -130,12 +136,12 @@ func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
 
 // GenerateRecipe godoc
 // @Summary Generate a recipe based on available ingredients
-// @Description Generate a personalized recipe using LLM based on pantry ingredients and preferences
+// @Description Generate 3 personalized recipes using LLM based on pantry ingredients and preferences
 // @Tags recipes
 // @Accept json
 // @Produce json
 // @Param request body dto.RecipeRequestDTO true "Recipe generation request"
-// @Success 200 {object} response.Response{data=dto.RecipeResponseDTO}
+// @Success 200 {object} response.Response{data=[]dto.RecipeResponseDTO}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
@@ -178,7 +184,8 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		}
 	}
 
-	recipe, err := h.recipeService.GenerateRecipe(c.Request.Context(), &request, userID)
+	// Generate 3 recipes as per requirements
+	recipes, err := h.recipeService.GenerateMultipleRecipes(c.Request.Context(), &request, userID, 3)
 	if err != nil {
 		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
 		h.handleServiceError(c, err)
@@ -196,7 +203,11 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, recipe)
+	response.OK(c, map[string]interface{}{
+		"message": "3 receitas foram geradas com sucesso.",
+		"recipes": recipes,
+		"count":   len(recipes),
+	})
 }
 
 func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
@@ -459,4 +470,216 @@ func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
 	}
 
 	response.OK(c, data)
+}
+
+// SaveRecipe godoc
+// @Summary Save a generated recipe
+// @Description Save one or more generated recipes to the database
+// @Tags recipes
+// @Accept json
+// @Produce json
+// @Param recipes body []dto.SaveRecipeDTO true "Recipe(s) to save"
+// @Success 200 {object} response.Response{data=map[string]interface{}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/save [post]
+// @Security BearerAuth
+func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Any("params", __logParams))
+
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
+		if userString, ok := userIDInterface.(string); ok {
+			parsed, err := uuid.Parse(userString)
+			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+				response.Unauthorized(c, "user_id inválido no contexto")
+				return
+			}
+			userID = parsed
+		} else {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+	}
+
+	// Try to parse as array first
+	var recipesArray []recipeDTO.SaveRecipeDTO
+	if err := c.ShouldBindJSON(&recipesArray); err == nil && len(recipesArray) > 0 {
+		// Multiple recipes
+		recipePtrs := make([]*recipeDTO.SaveRecipeDTO, len(recipesArray))
+		for i := range recipesArray {
+			recipePtrs[i] = &recipesArray[i]
+		}
+
+		if err := h.recipeService.SaveMultipleRecipes(c.Request.Context(), recipePtrs, userID); err != nil {
+			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+			h.handleServiceError(c, err)
+			return
+		}
+
+		message := "Receitas salvas com sucesso."
+		if len(recipesArray) == 1 {
+			message = "Receita salva com sucesso."
+		}
+		response.OK(c, map[string]interface{}{
+			"message": message,
+			"count":   len(recipesArray),
+		})
+		return
+	}
+
+	// Try to parse as single recipe
+	var singleRecipe recipeDTO.SaveRecipeDTO
+	if err := c.ShouldBindJSON(&singleRecipe); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
+		return
+	}
+
+	if err := h.recipeService.SaveRecipe(c.Request.Context(), &singleRecipe, userID); err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		h.handleServiceError(c, err)
+		return
+	}
+
+	response.OK(c, map[string]interface{}{
+		"message": "Receita salva com sucesso.",
+	})
+}
+
+// GetRecipes godoc
+// @Summary Get all saved recipes
+// @Description Get all recipes saved by the logged-in user
+// @Tags recipes
+// @Produce json
+// @Success 200 {object} response.Response{data=[]dto.RecipeDetailDTO}
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes [get]
+// @Security BearerAuth
+func (h *RecipeHandler) GetRecipes(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Any("params", __logParams))
+
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
+		if userString, ok := userIDInterface.(string); ok {
+			parsed, err := uuid.Parse(userString)
+			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Error(err), zap.Any("params", __logParams))
+				response.Unauthorized(c, "user_id inválido no contexto")
+				return
+			}
+			userID = parsed
+		} else {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+	}
+
+	recipes, err := h.recipeService.GetUserRecipes(c.Request.Context(), userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Error(err), zap.Any("params", __logParams))
+		h.handleServiceError(c, err)
+		return
+	}
+
+	if len(recipes) == 0 {
+		response.OK(c, map[string]interface{}{
+			"message": "Nenhuma receita encontrada.",
+			"recipes": []interface{}{},
+		})
+		return
+	}
+
+	response.OK(c, recipes)
+}
+
+// GetRecipeByID godoc
+// @Summary Get a specific recipe
+// @Description Get a specific recipe by ID belonging to the logged-in user
+// @Tags recipes
+// @Produce json
+// @Param id path string true "Recipe ID"
+// @Success 200 {object} response.Response{data=dto.RecipeDetailDTO}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/{id} [get]
+// @Security BearerAuth
+func (h *RecipeHandler) GetRecipeByID(c *gin.Context) {
+	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Any("params", __logParams))
+
+	recipeID := c.Param("id")
+	if recipeID == "" {
+		response.BadRequest(c, "ID da receita não fornecido")
+		return
+	}
+
+	recipeUUID, err := uuid.Parse(recipeID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+		response.BadRequest(c, "ID da receita inválido: "+err.Error())
+		return
+	}
+
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		response.Unauthorized(c, "userID não encontrado no contexto")
+		return
+	}
+
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
+		if userString, ok := userIDInterface.(string); ok {
+			parsed, err := uuid.Parse(userString)
+			if err != nil {
+				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+				response.Unauthorized(c, "user_id inválido no contexto")
+				return
+			}
+			userID = parsed
+		} else {
+			response.Unauthorized(c, "user_id inválido no contexto")
+			return
+		}
+	}
+
+	recipe, err := h.recipeService.GetRecipeByID(c.Request.Context(), recipeUUID, userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+		h.handleServiceError(c, err)
+		return
+	}
+
+	response.OK(c, recipe)
 }

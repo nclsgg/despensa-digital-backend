@@ -33,6 +33,7 @@ import (
 
 	// Recipe module imports
 	recipeHandler "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/handler"
+	recipeRepo "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/repository"
 	recipeService "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/service"
 
 	// Profile module imports
@@ -137,10 +138,13 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	)
 	shoppingListHandlerInstance := shoppingListHandler.NewShoppingListHandler(shoppingListServiceInstance, creditServiceInstance)
 
+	// Recipe module setup
+	recipeRepoInstance := recipeRepo.NewRecipeRepository(db)
 	recipeServiceInstance := recipeService.NewRecipeService(
 		llmServiceInstance,
 		itemRepoInstance,
 		pantryServiceInstance,
+		recipeRepoInstance,
 	)
 	recipeHandlerInstance := recipeHandler.NewRecipeHandler(recipeServiceInstance, llmServiceInstance, creditServiceInstance)
 
@@ -243,6 +247,9 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	recipeGroup.Use(middleware.ProfileCompleteMiddleware())
 	{
 		recipeGroup.POST("/generate", middleware.CreditGuardMiddleware(creditServiceInstance), recipeHandlerInstance.GenerateRecipe)
+		recipeGroup.POST("/save", recipeHandlerInstance.SaveRecipe)
+		recipeGroup.GET("", recipeHandlerInstance.GetRecipes)
+		recipeGroup.GET("/:id", recipeHandlerInstance.GetRecipeByID)
 		recipeGroup.GET("/ingredients", recipeHandlerInstance.GetAvailableIngredients)
 		recipeGroup.GET("/pantries/:pantry_id/ingredients", recipeHandlerInstance.GetAvailableIngredients)
 		recipeGroup.POST("/chat", middleware.CreditGuardMiddleware(creditServiceInstance), recipeHandlerInstance.ChatWithLLM)

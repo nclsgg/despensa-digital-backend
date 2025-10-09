@@ -145,7 +145,7 @@ go run cmd/server/main.go
 | Pantry | `/pantries`, `/pantries/{id}/users` | Controle de acesso por owner/membros |
 | Item | `/items`, `/items/pantry/{id}` | Respostas ISO8601, filtros |
 | Shopping List | `/shopping-lists`, `/shopping-lists/generate` | Geração manual e IA |
-| Recipe | `/recipes/generate`, `/recipes/ingredients` | Depende de pantry + IA |
+| Recipe | `/recipes/generate`, `/recipes/save`, `/recipes`, `/recipes/:id` | CRUD completo + geração IA (3 receitas) |
 
 Consulte `docs/swagger.yaml` ou a Wiki para detalhes completos dos contratos.
 

@@ -9,4 +9,6 @@ var (
 	ErrNoIngredients      = errors.New("recipe: no ingredients available")
 	ErrLLMRequest         = errors.New("recipe: llm request failed")
 	ErrInvalidLLMResponse = errors.New("recipe: invalid llm response")
+	ErrRecipeNotFound     = errors.New("recipe: recipe not found")
+	ErrInvalidRecipeData  = errors.New("recipe: invalid recipe data")
 )
