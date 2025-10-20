@@ -1,5 +1,3 @@
-cd despensa-digital/backend
-go install github.com/swaggo/swag/cmd/swag@latest
 # 🥫 Despensa Digital — Backend
 
 API em Go que alimenta a plataforma **Despensa Digital**. O serviço organiza o dia a dia da despensa, sugere compras com apoio de IA e integra autenticação OAuth2 com provedores populares.
