@@ -90,6 +90,7 @@ func (h *oauthHandler) InitOAuth() {
 // @Summary Initiate OAuth login
 // @Tags OAuth
 // @Param provider path string true "OAuth Provider (google)"
+// @Param mobile query string false "Mobile flag (true/false)"
 // @Success 302 "Redirect to OAuth provider"
 // @Router /auth/oauth/{provider} [get]
 func (h *oauthHandler) OAuthLogin(c *gin.Context) {
@@ -117,6 +118,22 @@ func (h *oauthHandler) OAuthLogin(c *gin.Context) {
 		h.handleAuthError(c, domain.ErrProviderNotSupported)
 		return
 	}
+
+	// Use OAuth state parameter to pass mobile flag reliably
+	isMobile := c.Query("mobile") == "true"
+
+	// Encode custom state with mobile flag
+	stateData := map[string]interface{}{
+		"mobile": isMobile,
+		"nonce":  uuid.New().String(), // Add random nonce for security
+	}
+	stateJSON, _ := json.Marshal(stateData)
+	customState := url.QueryEscape(string(stateJSON))
+
+	// Store custom state in query for gothic to use
+	query := c.Request.URL.Query()
+	query.Set("state", customState)
+	c.Request.URL.RawQuery = query.Encode()
 
 	h.ginGothicBeginAuth(c)
 }
@@ -176,7 +193,36 @@ func (h *oauthHandler) OAuthCallback(c *gin.Context) {
 	}
 
 	authData, _ := json.Marshal(authResp)
-	redirectURL := fmt.Sprintf("%s/auth/callback?data=%s", frontendURL, url.QueryEscape(string(authData)))
+
+	// Extract mobile flag from OAuth state parameter
+	isMobile := false
+	if stateParam := c.Query("state"); stateParam != "" {
+		stateJSON, err := url.QueryUnescape(stateParam)
+		if err == nil {
+			var stateData map[string]interface{}
+			if err := json.Unmarshal([]byte(stateJSON), &stateData); err == nil {
+				if mobile, ok := stateData["mobile"].(bool); ok {
+					isMobile = mobile
+				}
+			}
+		}
+	}
+
+	var redirectURL string
+	zap.L().Info("OAuth callback redirect decision",
+		zap.Bool("isMobile", isMobile),
+		zap.String("stateParam", c.Query("state")),
+	)
+
+	if isMobile {
+		// Redirect to deep link for mobile app
+		zap.L().Info("Redirecting to mobile app", zap.String("data", string(authData)))
+		redirectURL = fmt.Sprintf("despensadigital://auth/callback?data=%s", url.QueryEscape(string(authData)))
+	} else {
+		// Redirect to web frontend
+		zap.L().Info("Redirecting to web frontend", zap.String("data", string(authData)))
+		redirectURL = fmt.Sprintf("%s/auth/callback?data=%s", frontendURL, url.QueryEscape(string(authData)))
+	}
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }

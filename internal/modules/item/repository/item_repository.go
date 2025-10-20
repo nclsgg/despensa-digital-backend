@@ -110,7 +110,11 @@ func (r *itemRepository) CountByPantryID(ctx context.Context, pantryID uuid.UUID
 		// Filtro por preço mínimo
 		__logParams))
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&model.Item{}).Where("pantry_id = ?", pantryID).Count(&count).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Model(&model.Item{}).
+		Where("pantry_id = ?", pantryID).
+		Distinct("id").
+		Count(&count).Error; err != nil {
 		zap.L().Error("function.error", zap.String("func", "*itemRepository.CountByPantryID"), zap.Error(err), zap.Any("params", __logParams))
 		result0 = 0
 		result1 = err
