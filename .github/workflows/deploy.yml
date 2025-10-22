@@ -16,4 +16,4 @@ jobs:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Deploy to Despensa Digital VPS
-      run: ssh -o StrictHostKeyChecking=no root@147.93.179.252 'cd /root/despensa-digital-backend && git pull && docker-compose down && docker-compose up -d --build'
+      run: ssh -o StrictHostKeyChecking=no root@${{ secrets.VPS_IP }} 'cd /root/despensa-digital-backend && git pull && docker-compose down && docker-compose up -d --build'
