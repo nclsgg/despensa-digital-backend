@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: despensa-app
     ports:
       - "3030:3030"
@@ -15,22 +15,22 @@ services:
     networks:
       - despensa-net
 
-  postgres:
-    image: postgres:15
-    container_name: despensa-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: despensa
-      POSTGRES_PASSWORD: despensa123
-      POSTGRES_DB: despensa_db
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - despensa-net
-volumes:
-  pgdata:
+#   postgres:
+#     image: postgres:15
+#     container_name: despensa-postgres
+#     restart: unless-stopped
+#     environment:
+#       POSTGRES_USER: despensa
+#       POSTGRES_PASSWORD: despensa123
+#       POSTGRES_DB: despensa_db
+#     volumes:
+#       - pgdata:/var/lib/postgresql/data
+#     ports:
+#       - "5432:5432"
+#     networks:
+#       - despensa-net
+# volumes:
+#   pgdata:
 
 networks:
   despensa-net:

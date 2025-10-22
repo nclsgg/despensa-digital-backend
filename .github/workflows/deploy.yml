@@ -1,0 +1,19 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: webfactory/ssh-agent
+      uses: webfactory/ssh-agent@v0.9.1
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Deploy to Despensa Digital Droplet
+      run: ssh -o StrictHostKeyChecking=no root@167.99.121.205 'cd /root/despensa-digital-backend && git pull && docker-compose down && docker-compose up -d --build'
