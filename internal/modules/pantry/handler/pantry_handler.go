@@ -120,6 +120,81 @@ func (h *pantryHandler) ListPantries(c *gin.Context) {
 	response.OK(c, res)
 }
 
+// @Summary Get the user's main pantry
+// @Description Returns the first pantry of the current user (assuming single pantry usage)
+// @Tags Pantry
+// @Produce json
+// @Success 200 {object} dto.PantryDetailResponse
+// @Failure 404 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /pantries/my-pantry [get]
+func (h *pantryHandler) GetMyPantry(c *gin.Context) {
+	__logParams := map[string]any{"h": h, "c": c}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryHandler.GetMyPantry"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryHandler.GetMyPantry"), zap.Any("params", __logParams))
+
+	rawID, _ := c.Get("userID")
+	userID, ok := rawID.(uuid.UUID)
+	if !ok {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	pantryWithCount, err := h.service.GetMyPantry(c.Request.Context(), userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.GetMyPantry"), zap.Error(err), zap.Any("params", __logParams))
+		response.Fail(c, 404, "NOT_FOUND", "Pantry not found")
+		return
+	}
+
+	items, err := h.itemService.ListByPantryID(c.Request.Context(), pantryWithCount.Pantry.ID, userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryHandler.GetMyPantry"), zap.Error(err), zap.Any("params", __logParams))
+		switch {
+		case errors.Is(err, itemDomain.ErrUnauthorized):
+			response.Fail(c, 403, "FORBIDDEN", "Access denied to this pantry")
+		default:
+			response.InternalError(c, "Failed to list pantry items")
+		}
+		return
+	}
+
+	itemResponses := make([]dto.PantryItemResponse, 0, len(items))
+	for _, item := range items {
+		itemResponses = append(itemResponses, dto.PantryItemResponse{
+			ID:             item.ID,
+			PantryID:       item.PantryID,
+			Name:           item.Name,
+			Quantity:       item.Quantity,
+			Unit:           item.Unit,
+			PricePerUnit:   item.PricePerUnit,
+			TotalPrice:     item.TotalPrice,
+			AddedBy:        item.AddedBy,
+			CategoryID:     item.CategoryID,
+			ExpirationDate: item.ExpiresAt,
+			CreatedAt:      item.CreatedAt,
+			UpdatedAt:      item.UpdatedAt,
+		})
+	}
+
+	res := dto.PantryDetailResponse{
+		PantrySummaryResponse: dto.PantrySummaryResponse{
+			ID:        pantryWithCount.Pantry.ID.String(),
+			Name:      pantryWithCount.Pantry.Name,
+			OwnerID:   pantryWithCount.Pantry.OwnerID.String(),
+			ItemCount: pantryWithCount.ItemCount,
+			CreatedAt: pantryWithCount.Pantry.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: pantryWithCount.Pantry.UpdatedAt.Format(time.RFC3339),
+		},
+		Items: itemResponses,
+	}
+
+	response.OK(c, res)
+}
+
 // @Summary Get a specific pantry
 // @Tags Pantry
 // @Produce json

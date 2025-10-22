@@ -140,6 +140,47 @@ func (s *pantryService) GetPantryWithItemCount(ctx context.Context, pantryID uui
 	return
 }
 
+func (s *pantryService) GetMyPantry(ctx context.Context, userID uuid.UUID) (result0 *model.PantryWithItemCount, result1 error) {
+	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
+	__logStart := time.Now()
+	defer func() {
+		zap.L().Info("function.exit", zap.String("func", "*pantryService.GetMyPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
+	}()
+	zap.L().Info("function.entry", zap.String("func", "*pantryService.GetMyPantry"), zap.Any("params", __logParams))
+
+	// Get all pantries for the user
+	pantries, err := s.repo.GetByUser(ctx, userID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.GetMyPantry"), zap.Error(err), zap.Any("params", __logParams))
+		result0 = nil
+		result1 = err
+		return
+	}
+
+	// Check if user has any pantries
+	if len(pantries) == 0 {
+		result0 = nil
+		result1 = ErrPantryNotFound
+		return
+	}
+
+	// Return the first pantry with item count
+	firstPantry := pantries[0]
+	itemCount, err := s.itemRepo.CountByPantryID(ctx, firstPantry.ID)
+	if err != nil {
+		zap.L().Error("function.error", zap.String("func", "*pantryService.GetMyPantry"), zap.Error(err), zap.Any("params", __logParams))
+		// Default to 0 if we can't get the count
+		itemCount = 0
+	}
+
+	result0 = &model.PantryWithItemCount{
+		Pantry:    firstPantry,
+		ItemCount: itemCount,
+	}
+	result1 = nil
+	return
+}
+
 func (s *pantryService) ListPantriesByUser(ctx context.Context, userID uuid.UUID) (result0 []*model.Pantry, result1 error) {
 	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
 	__logStart := time.Now()

@@ -157,6 +157,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	{
 		pantryGroup.POST("", pantryHandlerInstance.CreatePantry)
 		pantryGroup.GET("", pantryHandlerInstance.ListPantries)
+		pantryGroup.GET("/my-pantry", pantryHandlerInstance.GetMyPantry)
 		pantryGroup.GET("/:id", pantryHandlerInstance.GetPantry)
 		pantryGroup.DELETE("/:id", pantryHandlerInstance.DeletePantry)
 		pantryGroup.PUT("/:id", pantryHandlerInstance.UpdatePantry)

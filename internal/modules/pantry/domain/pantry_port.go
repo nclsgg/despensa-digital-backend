@@ -12,6 +12,7 @@ type PantryService interface {
 	CreatePantry(ctx context.Context, name string, ownerID uuid.UUID) (*model.Pantry, error)
 	GetPantry(ctx context.Context, pantryID, userID uuid.UUID) (*model.Pantry, error)
 	GetPantryWithItemCount(ctx context.Context, pantryID, userID uuid.UUID) (*model.PantryWithItemCount, error)
+	GetMyPantry(ctx context.Context, userID uuid.UUID) (*model.PantryWithItemCount, error)
 	ListPantriesByUser(ctx context.Context, userID uuid.UUID) ([]*model.Pantry, error)
 	ListPantriesWithItemCount(ctx context.Context, userID uuid.UUID) ([]*model.PantryWithItemCount, error)
 	DeletePantry(ctx context.Context, pantryID, userID uuid.UUID) error
@@ -42,6 +43,7 @@ type PantryHandler interface {
 	CreatePantry(ctx *gin.Context)
 	ListPantries(ctx *gin.Context)
 	GetPantry(ctx *gin.Context)
+	GetMyPantry(ctx *gin.Context)
 	DeletePantry(ctx *gin.Context)
 	UpdatePantry(ctx *gin.Context)
 	AddUserToPantry(ctx *gin.Context)
