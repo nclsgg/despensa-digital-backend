@@ -1,4 +1,4 @@
-name: Deploy to Digital Ocean
+name: Deploy to VPS
 
 on:
   push:
@@ -15,5 +15,5 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Deploy to Despensa Digital Droplet
-      run: ssh -o StrictHostKeyChecking=no root@167.99.121.205 'cd /root/despensa-digital-backend && git pull && docker-compose down && docker-compose up -d --build'
+    - name: Deploy to Despensa Digital VPS
+      run: ssh -o StrictHostKeyChecking=no root@147.93.179.252 'cd /root/despensa-digital-backend && git pull && docker-compose down && docker-compose up -d --build'
