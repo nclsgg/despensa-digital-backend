@@ -1,8 +1,6 @@
 package router
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 	_ "github.com/nclsgg/despensa-digital/backend/cmd/server/docs"
 	swaggerFiles "github.com/swaggo/files"
@@ -47,21 +45,17 @@ import (
 	shoppingListService "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/service"
 
 	middleware "github.com/nclsgg/despensa-digital/backend/internal/router/middlewares"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
-	__logParams := map[string]any{"r": r, "db": db, "cfg": cfg}
-	__logStart := time.Now()
-	defer func() {
-		zap.
+func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config, logger *zap.Logger) {
+	// Add logger middleware (with request ID, logging, and recovery)
+	r.Use(appLogger.GinRequestIDMiddleware())
+	r.Use(appLogger.GinLogger(logger))
+	r.Use(appLogger.GinRecovery(logger))
 
-			// User repository (needed for auth middleware)
-			L().Info("function.exit", zap.String("func", "SetupRoutes"), zap.Any("result", nil), zap.Duration("duration",
+	logger.Info("Setting up routes")
 
-			// OAuth-only auth routes
-			time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "SetupRoutes"), zap.Any("params", __logParams))
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",

@@ -10,6 +10,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/credits/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/credits/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/credits/model"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -18,53 +19,42 @@ type creditService struct {
 	repo domain.CreditRepository
 }
 
-func NewCreditService(repo domain.CreditRepository) (result0 domain.CreditService) {
-	__logParams := map[string]any{"repo": repo}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewCreditService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewCreditService"), zap.Any("params", __logParams))
-	result0 = &creditService{repo: repo}
-	return
+func NewCreditService(repo domain.CreditRepository) domain.CreditService {
+	return &creditService{repo: repo}
 }
 
-func (s *creditService) GetWallet(ctx context.Context, userID uuid.UUID) (result0 *dto.CreditWalletResponse, result1 error) {
-	__logParams := map[string]any{"ctx": ctx, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*creditService.GetWallet"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*creditService.GetWallet"), zap.Any("params", __logParams))
+func (s *creditService) GetWallet(ctx context.Context, userID uuid.UUID) (*dto.CreditWalletResponse, error) {
+	logger := appLogger.FromContext(ctx)
 
 	wallet, err := s.repo.GetWalletByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			wallet, err = s.createWalletWithDefaults(ctx, userID)
 			if err != nil {
-				result0 = nil
-				result1 = err
-				return
+				logger.Error("failed to create wallet",
+					zap.String(appLogger.FieldModule, "credits"),
+					zap.String(appLogger.FieldFunction, "GetWallet"),
+					zap.String(appLogger.FieldUserID, userID.String()),
+					zap.Error(err),
+				)
+				return nil, err
 			}
 		} else {
-			result0 = nil
-			result1 = err
-			return
+			logger.Error("failed to get wallet",
+				zap.String(appLogger.FieldModule, "credits"),
+				zap.String(appLogger.FieldFunction, "GetWallet"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.Error(err),
+			)
+			return nil, err
 		}
 	}
 
-	result0 = toWalletResponse(wallet)
-	result1 = nil
-	return
+	return toWalletResponse(wallet), nil
 }
 
-func (s *creditService) ConsumeCredit(ctx context.Context, userID uuid.UUID, description string) (result0 error) {
-	__logParams := map[string]any{"ctx": ctx, "userID": userID, "description": description}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*creditService.ConsumeCredit"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*creditService.ConsumeCredit"), zap.Any("params", __logParams))
+func (s *creditService) ConsumeCredit(ctx context.Context, userID uuid.UUID, description string) error {
+	logger := appLogger.FromContext(ctx)
 
 	desc := strings.TrimSpace(description)
 	if desc == "" {
@@ -106,29 +96,40 @@ func (s *creditService) ConsumeCredit(ctx context.Context, userID uuid.UUID, des
 
 	if err != nil {
 		if errors.Is(err, domain.ErrInsufficientCredits) {
-			result0 = domain.ErrInsufficientCredits
-			return
+			logger.Warn("insufficient credits",
+				zap.String(appLogger.FieldModule, "credits"),
+				zap.String(appLogger.FieldFunction, "ConsumeCredit"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
+			return domain.ErrInsufficientCredits
 		}
-		result0 = err
-		return
+		logger.Error("failed to consume credit",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "ConsumeCredit"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return err
 	}
 
-	result0 = nil
-	return
+	logger.Info("credit consumed",
+		zap.String(appLogger.FieldModule, "credits"),
+		zap.String(appLogger.FieldFunction, "ConsumeCredit"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+	)
+	return nil
 }
 
-func (s *creditService) AddCredit(ctx context.Context, actorID uuid.UUID, targetUserID uuid.UUID, amount int, description string) (result0 *dto.CreditWalletResponse, result1 error) {
-	__logParams := map[string]any{"ctx": ctx, "actorID": actorID, "targetUserID": targetUserID, "amount": amount, "description": description}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*creditService.AddCredit"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*creditService.AddCredit"), zap.Any("params", __logParams))
+func (s *creditService) AddCredit(ctx context.Context, actorID uuid.UUID, targetUserID uuid.UUID, amount int, description string) (*dto.CreditWalletResponse, error) {
+	logger := appLogger.FromContext(ctx)
 
 	if amount <= 0 {
-		result0 = nil
-		result1 = domain.ErrInvalidCreditAmount
-		return
+		logger.Warn("invalid credit amount",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "AddCredit"),
+			zap.Int(appLogger.FieldCount, amount),
+		)
+		return nil, domain.ErrInvalidCreditAmount
 	}
 
 	desc := strings.TrimSpace(description)
@@ -170,29 +171,37 @@ func (s *creditService) AddCredit(ctx context.Context, actorID uuid.UUID, target
 		updatedWallet = wallet
 		return nil
 	}); err != nil {
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to add credit",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "AddCredit"),
+			zap.String(appLogger.FieldUserID, targetUserID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
-	result0 = toWalletResponse(updatedWallet)
-	result1 = nil
-	return
+	logger.Info("credit added",
+		zap.String(appLogger.FieldModule, "credits"),
+		zap.String(appLogger.FieldFunction, "AddCredit"),
+		zap.String(appLogger.FieldUserID, targetUserID.String()),
+		zap.Int(appLogger.FieldCount, amount),
+	)
+
+	return toWalletResponse(updatedWallet), nil
 }
 
-func (s *creditService) ListTransactions(ctx context.Context, userID uuid.UUID, filter dto.TransactionFilter) (result0 []*dto.CreditTransactionResponse, result1 error) {
-	__logParams := map[string]any{"ctx": ctx, "userID": userID, "filter": filter}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*creditService.ListTransactions"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*creditService.ListTransactions"), zap.Any("params", __logParams))
+func (s *creditService) ListTransactions(ctx context.Context, userID uuid.UUID, filter dto.TransactionFilter) ([]*dto.CreditTransactionResponse, error) {
+	logger := appLogger.FromContext(ctx)
 
 	transactions, err := s.repo.ListTransactions(ctx, userID, filter)
 	if err != nil {
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to list transactions",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "ListTransactions"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	responses := make([]*dto.CreditTransactionResponse, 0, len(transactions))
@@ -200,9 +209,7 @@ func (s *creditService) ListTransactions(ctx context.Context, userID uuid.UUID, 
 		responses = append(responses, toTransactionResponse(tx))
 	}
 
-	result0 = responses
-	result1 = nil
-	return
+	return responses, nil
 }
 
 func (s *creditService) createWalletWithDefaults(ctx context.Context, userID uuid.UUID) (*model.CreditWallet, error) {

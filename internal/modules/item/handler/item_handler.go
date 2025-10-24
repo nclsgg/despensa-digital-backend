@@ -3,12 +3,12 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
 )
@@ -17,37 +17,15 @@ type itemHandler struct {
 	service domain.ItemService
 }
 
-func NewItemHandler(service domain.ItemService) (result0 domain.ItemHandler) {
-	__logParams := map[string]any{"service": service}
-
-	// @Summary Create a new item
-	// @Tags Items
-	// @Accept json
-	// @Produce json
-	// @Param body body dto.CreateItemDTO true "Item data"
-	// @Success 201 {object} dto.ItemResponse
-	// @Failure 400 {object} response.APIResponse
-	// @Failure 500 {object} response.APIResponse
-	// @Router /items [post]
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewItemHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewItemHandler"), zap.Any("params", __logParams))
-	result0 = &itemHandler{service}
-	return
+func NewItemHandler(service domain.ItemService) domain.ItemHandler {
+	return &itemHandler{service}
 }
 
 func (h *itemHandler) CreateItem(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.CreateItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.CreateItem"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	var input dto.CreateItemDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.CreateItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input")
 		return
 	}
@@ -57,7 +35,12 @@ func (h *itemHandler) CreateItem(c *gin.Context) {
 
 	item, err := h.service.Create(c.Request.Context(), input, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.CreateItem"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to create item",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "CreateItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrInvalidPantry):
 			response.BadRequest(c, "Invalid pantry ID")
@@ -83,15 +66,10 @@ func (h *itemHandler) CreateItem(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /items/{id} [put]
 func (h *itemHandler) UpdateItem(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.UpdateItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.UpdateItem"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.UpdateItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid Item ID")
 		return
 	}
@@ -101,14 +79,19 @@ func (h *itemHandler) UpdateItem(c *gin.Context) {
 
 	var input dto.UpdateItemDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.UpdateItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid input")
 		return
 	}
 
 	item, err := h.service.Update(c.Request.Context(), id, input, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.UpdateItem"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to update item",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "UpdateItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("item_id", id.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrItemNotFound):
 			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
@@ -132,15 +115,10 @@ func (h *itemHandler) UpdateItem(c *gin.Context) {
 // @Failure 404 {object} response.APIResponse
 // @Router /items/{id} [get]
 func (h *itemHandler) GetItem(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.GetItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.GetItem"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.GetItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid Item ID")
 		return
 	}
@@ -150,7 +128,13 @@ func (h *itemHandler) GetItem(c *gin.Context) {
 
 	item, err := h.service.FindByID(c.Request.Context(), id, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.GetItem"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to fetch item",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "GetItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("item_id", id.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrItemNotFound):
 			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
@@ -173,15 +157,10 @@ func (h *itemHandler) GetItem(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /items/{id} [delete]
 func (h *itemHandler) DeleteItem(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.DeleteItem"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.DeleteItem"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.DeleteItem"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid Item ID")
 		return
 	}
@@ -190,7 +169,13 @@ func (h *itemHandler) DeleteItem(c *gin.Context) {
 	userID := rawID.(uuid.UUID)
 
 	if err := h.service.Delete(c.Request.Context(), id, userID); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.DeleteItem"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to delete item",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "DeleteItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("item_id", id.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrItemNotFound):
 			response.Fail(c, http.StatusNotFound, "NOT_FOUND", "Item not found")
@@ -213,12 +198,8 @@ func (h *itemHandler) DeleteItem(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /items [get]
 func (h *itemHandler) ListItems(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.ListItems"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.ListItems"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	pantryIDStr := c.Param("id")
 	rawID, _ := c.Get("userID")
 	userID := rawID.(uuid.UUID)
@@ -229,14 +210,19 @@ func (h *itemHandler) ListItems(c *gin.Context) {
 
 	pantryID, err := uuid.Parse(pantryIDStr)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.ListItems"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid Pantry ID")
 		return
 	}
 
 	items, err := h.service.ListByPantryID(c.Request.Context(), pantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.ListItems"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to list items",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "ListItems"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrUnauthorized):
 			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")
@@ -260,12 +246,8 @@ func (h *itemHandler) ListItems(c *gin.Context) {
 // @Failure 500 {object} response.APIResponse
 // @Router /items/pantry/{id}/filter [post]
 func (h *itemHandler) FilterItems(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemHandler.FilterItems"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemHandler.FilterItems"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	pantryIDStr := c.Param("id")
 	if pantryIDStr == "" {
 		response.BadRequest(c, "Pantry ID is required")
@@ -274,14 +256,12 @@ func (h *itemHandler) FilterItems(c *gin.Context) {
 
 	pantryID, err := uuid.Parse(pantryIDStr)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.FilterItems"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid Pantry ID")
 		return
 	}
 
 	var filters dto.ItemFilterDTO
 	if err := c.ShouldBindJSON(&filters); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.FilterItems"), zap.Error(err), zap.Any("params", __logParams))
 		response.BadRequest(c, "Invalid filter parameters")
 		return
 	}
@@ -291,7 +271,13 @@ func (h *itemHandler) FilterItems(c *gin.Context) {
 
 	items, err := h.service.FilterByPantryID(c.Request.Context(), pantryID, filters, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemHandler.FilterItems"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to filter items",
+			zap.String(appLogger.FieldModule, "item"),
+			zap.String(appLogger.FieldFunction, "FilterItems"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
 		switch {
 		case errors.Is(err, domain.ErrUnauthorized):
 			response.Fail(c, http.StatusForbidden, "FORBIDDEN", "Access denied to this pantry")

@@ -30,16 +30,34 @@ import (
 // @host localhost:5310
 // @BasePath /
 func main() {
-	cleanupLogger := appLogger.Setup(os.Getenv("GIN_MODE"))
-	defer cleanupLogger()
+	// Initialize logger based on environment
+	ginMode := os.Getenv("GIN_MODE")
 
-	__logParams := map[string]any{}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "main"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "main"), zap.Any("params", __logParams))
+	var logger *zap.Logger
+
+	if ginMode == "release" {
+		// Production configuration
+		logger = appLogger.NewProduction()
+		appLogger.WithAppInfo(logger, "despensa-digital", "1.0.0")
+	} else {
+		// Development configuration
+		logger = appLogger.NewDevelopment()
+		appLogger.WithAppInfo(logger, "despensa-digital", "1.0.0")
+	}
+
+	defer logger.Sync()
+
+	logger.Info("Starting Despensa Digital API",
+		zap.String(appLogger.FieldEnvironment, ginMode),
+	)
+
 	cfg := config.LoadConfig()
+
+	logger.Info("Configuration loaded",
+		zap.String("port", cfg.Port),
+		zap.String("cors_origin", cfg.CorsOrigin),
+	)
+
 	db := database.ConnectPostgres(cfg)
 
 	sqlDB, _ := db.DB()
@@ -56,7 +74,11 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.SetupRoutes(r, db, cfg)
+	router.SetupRoutes(r, db, cfg, logger)
+
+	logger.Info("Server starting",
+		zap.String("port", cfg.Port),
+	)
 
 	r.Run(":" + cfg.Port)
 }

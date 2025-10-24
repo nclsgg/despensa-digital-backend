@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/credits/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/credits/dto"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
 )
@@ -19,24 +20,12 @@ type CreditHandler struct {
 	service domain.CreditService
 }
 
-func NewCreditHandler(service domain.CreditService) (result0 *CreditHandler) {
-	__logParams := map[string]any{"service": service}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewCreditHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewCreditHandler"), zap.Any("params", __logParams))
-	result0 = &CreditHandler{service: service}
-	return
+func NewCreditHandler(service domain.CreditService) *CreditHandler {
+	return &CreditHandler{service: service}
 }
 
 func (h *CreditHandler) GetWallet(c *gin.Context) {
-	__logParams := map[string]any{"handler": "CreditHandler", "route": c.FullPath()}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*CreditHandler.GetWallet"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*CreditHandler.GetWallet"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	userID, ok := extractUserID(c)
 	if !ok {
@@ -46,7 +35,12 @@ func (h *CreditHandler) GetWallet(c *gin.Context) {
 
 	wallet, err := h.service.GetWallet(c.Request.Context(), userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*CreditHandler.GetWallet"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to get wallet",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "GetWallet"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		response.InternalError(c, "failed to retrieve wallet")
 		return
 	}
@@ -55,12 +49,7 @@ func (h *CreditHandler) GetWallet(c *gin.Context) {
 }
 
 func (h *CreditHandler) ListTransactions(c *gin.Context) {
-	__logParams := map[string]any{"handler": "CreditHandler", "route": c.FullPath(), "query": c.Request.URL.RawQuery}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*CreditHandler.ListTransactions"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*CreditHandler.ListTransactions"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	requesterID, ok := extractUserID(c)
 	if !ok {
@@ -115,7 +104,12 @@ func (h *CreditHandler) ListTransactions(c *gin.Context) {
 
 	transactions, err := h.service.ListTransactions(c.Request.Context(), targetUserID, filter)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*CreditHandler.ListTransactions"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("failed to list transactions",
+			zap.String(appLogger.FieldModule, "credits"),
+			zap.String(appLogger.FieldFunction, "ListTransactions"),
+			zap.String(appLogger.FieldUserID, targetUserID.String()),
+			zap.Error(err),
+		)
 		response.InternalError(c, "failed to list transactions")
 		return
 	}
@@ -126,12 +120,7 @@ func (h *CreditHandler) ListTransactions(c *gin.Context) {
 }
 
 func (h *CreditHandler) AddCredits(c *gin.Context) {
-	__logParams := map[string]any{"handler": "CreditHandler", "route": c.FullPath()}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*CreditHandler.AddCredits"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*CreditHandler.AddCredits"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	if !isAdmin(c) {
 		response.Fail(c, http.StatusForbidden, "FORBIDDEN", "only administrators can grant credits")
@@ -166,7 +155,12 @@ func (h *CreditHandler) AddCredits(c *gin.Context) {
 		case errors.Is(err, domain.ErrInvalidCreditAmount):
 			response.Fail(c, http.StatusBadRequest, "INVALID_AMOUNT", "amount must be positive")
 		default:
-			zap.L().Error("function.error", zap.String("func", "*CreditHandler.AddCredits"), zap.Error(err), zap.Any("params", __logParams))
+			logger.Error("failed to add credits",
+				zap.String(appLogger.FieldModule, "credits"),
+				zap.String(appLogger.FieldFunction, "AddCredits"),
+				zap.String(appLogger.FieldUserID, targetUserID.String()),
+				zap.Error(err),
+			)
 			response.InternalError(c, "failed to add credits")
 		}
 		return

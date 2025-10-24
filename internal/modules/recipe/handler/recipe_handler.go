@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,6 +12,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/llm/service"
 	recipeDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/domain"
 	recipeDTO "github.com/nclsgg/despensa-digital/backend/internal/modules/recipe/dto"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
 )
@@ -60,56 +60,33 @@ func NewRecipeHandler(
 	recipeService recipeDomain.RecipeService,
 	llmService *service.LLMServiceImpl,
 	creditService creditsDomain.CreditService,
-) (result0 *RecipeHandler) {
-	__logParams := map[string]any{"recipeService": recipeService, "llmService": llmService, "creditService": creditService}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewRecipeHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewRecipeHandler"), zap.Any("params", __logParams))
-	result0 = &RecipeHandler{
+) *RecipeHandler {
+	return &RecipeHandler{
 		recipeService: recipeService,
 		llmService:    llmService,
 		creditService: creditService,
 	}
-	return
 }
 
-func extractDetail(err error, base error, fallback string) (result0 string) {
-	__logParams := map[string]any{"err": err, "base": base, "fallback": fallback}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "extractDetail"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "extractDetail"), zap.Any("params", __logParams))
+func extractDetail(err error, base error, fallback string) string {
 	if err == nil {
-		result0 = fallback
-		return
+		return fallback
 	}
 	if base == nil || !errors.Is(err, base) {
-		result0 = fallback
-		return
+		return fallback
 	}
 	message := err.Error()
 	prefix := base.Error() + ": "
 	if strings.HasPrefix(message, prefix) {
 		detail := strings.TrimPrefix(message, prefix)
 		if detail != "" {
-			result0 = detail
-			return
+			return detail
 		}
 	}
-	result0 = fallback
-	return
+	return fallback
 }
 
 func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c), "err": err}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.handleServiceError"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.handleServiceError"), zap.Any("params", __logParams))
 	switch {
 	case errors.Is(err, recipeDomain.ErrInvalidRequest):
 		detail := extractDetail(err, recipeDomain.ErrInvalidRequest, "Invalid recipe request")
@@ -148,16 +125,15 @@ func (h *RecipeHandler) handleServiceError(c *gin.Context, err error) {
 // @Router /api/v1/recipes/generate [post]
 // @Security BearerAuth
 func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 	var request dto.RecipeRequestDTO
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid recipe generation request",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
@@ -173,7 +149,11 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
+				logger.Error("Invalid user ID format",
+					zap.String(appLogger.FieldModule, "recipe"),
+					zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+					zap.Error(err),
+				)
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -187,7 +167,12 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 	// Generate 3 recipes as per requirements
 	recipes, err := h.recipeService.GenerateMultipleRecipes(c.Request.Context(), &request, userID, 3)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to generate recipes",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		h.handleServiceError(c, err)
 		return
 	}
@@ -195,13 +180,30 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 	if creditErr := h.creditService.ConsumeCredit(c.Request.Context(), userID, "AI request - recipe generation"); creditErr != nil {
 		switch {
 		case errors.Is(creditErr, creditsDomain.ErrInsufficientCredits):
+			logger.Warn("Insufficient credits for recipe generation",
+				zap.String(appLogger.FieldModule, "recipe"),
+				zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
 			response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to generate a recipe")
 		default:
-			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GenerateRecipe"), zap.Error(creditErr), zap.Any("params", __logParams))
+			logger.Error("Failed to consume credit",
+				zap.String(appLogger.FieldModule, "recipe"),
+				zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.Error(creditErr),
+			)
 			response.InternalError(c, "Failed to consume credit after recipe generation")
 		}
 		return
 	}
+
+	logger.Info("Recipes generated successfully via handler",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "GenerateRecipe"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.Int(appLogger.FieldCount, len(recipes)),
+	)
 
 	response.OK(c, map[string]interface{}{
 		"message": "3 receitas foram geradas com sucesso.",
@@ -211,32 +213,34 @@ func (h *RecipeHandler) GenerateRecipe(c *gin.Context) {
 }
 
 func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	pantryID := c.Param("id")
 	if pantryID == "" {
 		pantryID = c.Param("pantry_id")
 	}
 	if pantryID == "" {
+		logger.Warn("Pantry ID not provided",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetAvailableIngredients"),
+		)
 		response.BadRequest(c, "pantry_id não fornecido")
 		return
 	}
 
 	pantryUUID, err := uuid.Parse(pantryID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"),
-
-			// Get user ID from context
-			zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid pantry ID format",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetAvailableIngredients"),
+			zap.String("pantry_id", pantryID),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "ID da despensa inválido: "+err.Error())
 		return
 	}
 
+	// Get user ID from context
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
 		response.Unauthorized(c, "userID não encontrado no contexto")
@@ -248,7 +252,11 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"), zap.Error(err), zap.Any("params", __logParams))
+				logger.Error("Invalid user ID format",
+					zap.String(appLogger.FieldModule, "recipe"),
+					zap.String(appLogger.FieldFunction, "GetAvailableIngredients"),
+					zap.Error(err),
+				)
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -261,36 +269,43 @@ func (h *RecipeHandler) GetAvailableIngredients(c *gin.Context) {
 
 	ingredients, err := h.recipeService.GetAvailableIngredients(c.Request.Context(), pantryUUID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetAvailableIngredients"),
-
-			// ChatWithLLM godoc
-			// @Summary Chat with LLM for recipe suggestions
-			// @Description Send a direct message to LLM for recipe advice and cooking tips
-			// @Tags recipes,llm
-			// @Accept json
-			// @Produce json
-			// @Param request body dto.LLMRequestDTO true "LLM chat request"
-			// @Success 200 {object} response.Response{data=dto.LLMResponseDTO}
-			// @Failure 400 {object} response.Response
-			// @Failure 401 {object} response.Response
-			// @Failure 500 {object} response.Response
-			// @Router /api/v1/recipes/chat [post]
-			// @Security BearerAuth
-			zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to get available ingredients",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetAvailableIngredients"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryUUID.String()),
+			zap.Error(err),
+		)
 		h.handleServiceError(c, err)
 		return
 	}
 
+	logger.Info("Available ingredients retrieved via handler",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "GetAvailableIngredients"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("pantry_id", pantryUUID.String()),
+		zap.Int(appLogger.FieldCount, len(ingredients)),
+	)
+
 	response.OK(c, ingredients)
 }
 
+// ChatWithLLM godoc
+// @Summary Chat with LLM for recipe suggestions
+// @Description Send a direct message to LLM for recipe advice and cooking tips
+// @Tags recipes,llm
+// @Accept json
+// @Produce json
+// @Param request body dto.LLMRequestDTO true "LLM chat request"
+// @Success 200 {object} response.Response{data=dto.LLMResponseDTO}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/recipes/chat [post]
+// @Security BearerAuth
 func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 	var request dto.LLMRequestDTO
 
 	userIDInterface, exists := c.Get("userID")
@@ -316,14 +331,24 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid LLM chat request",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "ChatWithLLM"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
 	response_data, err := h.llmService.ProcessRequest(c.Request.Context(), &request)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("LLM request failed",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "ChatWithLLM"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		response.InternalError(c, "Erro na requisição ao LLM: "+err.Error())
 		return
 	}
@@ -331,13 +356,29 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 	if creditErr := h.creditService.ConsumeCredit(c.Request.Context(), userID, "AI request - recipe chat"); creditErr != nil {
 		switch {
 		case errors.Is(creditErr, creditsDomain.ErrInsufficientCredits):
+			logger.Warn("Insufficient credits for recipe chat",
+				zap.String(appLogger.FieldModule, "recipe"),
+				zap.String(appLogger.FieldFunction, "ChatWithLLM"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
 			response.Fail(c, http.StatusPaymentRequired, "INSUFFICIENT_CREDITS", "You don't have enough credits to chat with the recipe assistant")
 		default:
-			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.ChatWithLLM"), zap.Error(creditErr), zap.Any("params", __logParams))
+			logger.Error("Failed to consume credit",
+				zap.String(appLogger.FieldModule, "recipe"),
+				zap.String(appLogger.FieldFunction, "ChatWithLLM"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.Error(creditErr),
+			)
 			response.InternalError(c, "Failed to consume credits for recipe chat")
 		}
 		return
 	}
+
+	logger.Info("LLM chat completed successfully",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "ChatWithLLM"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+	)
 
 	response.OK(c, response_data)
 }
@@ -352,18 +393,18 @@ func (h *RecipeHandler) ChatWithLLM(c *gin.Context) {
 // @Router /api/v1/llm/providers [get]
 // @Security BearerAuth
 func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
+
 	providers := h.llmService.GetAvailableProviders()
 	currentProvider := h.llmService.GetCurrentProvider()
 
 	providerInfo, err := h.llmService.GetProviderInfo()
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetLLMProviders"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Failed to get provider info",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetLLMProviders"),
+			zap.Error(err),
+		)
 		providerInfo = map[string]interface{}{
 			"error": err.Error(),
 		}
@@ -374,6 +415,12 @@ func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
 		"current_provider":    currentProvider,
 		"provider_info":       providerInfo,
 	}
+
+	logger.Info("LLM providers retrieved",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "GetLLMProviders"),
+		zap.String("current_provider", currentProvider),
+	)
 
 	response.OK(c, data)
 }
@@ -391,31 +438,45 @@ func (h *RecipeHandler) GetLLMProviders(c *gin.Context) {
 // @Router /api/v1/llm/providers [put]
 // @Security BearerAuth
 func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 	var request map[string]string
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid provider request",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SetLLMProvider"),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
 	provider, exists := request["provider"]
 	if !exists || provider == "" {
+		logger.Warn("Provider not specified",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SetLLMProvider"),
+		)
 		response.BadRequest(c, "provider não fornecido")
 		return
 	}
 
 	if err := h.llmService.SetProvider(provider); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SetLLMProvider"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to set provider",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SetLLMProvider"),
+			zap.String("provider", provider),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Erro ao definir provedor: "+err.Error())
 		return
 	}
+
+	logger.Info("LLM provider changed",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "SetLLMProvider"),
+		zap.String("provider", provider),
+	)
 
 	response.OK(c, map[string]string{
 		"provider": provider,
@@ -435,29 +496,37 @@ func (h *RecipeHandler) SetLLMProvider(c *gin.Context) {
 // @Router /api/v1/llm/estimate-tokens [post]
 // @Security BearerAuth
 func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 	var request map[string]string
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid token estimation request",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "EstimateTokens"),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
 	text, exists := request["text"]
 	if !exists {
+		logger.Warn("Text not provided for estimation",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "EstimateTokens"),
+		)
 		response.BadRequest(c, "text não fornecido")
 		return
 	}
 
 	tokens, err := h.llmService.EstimateTokens(text)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.EstimateTokens"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to estimate tokens",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "EstimateTokens"),
+			zap.Int("text_length", len(text)),
+			zap.Error(err),
+		)
 		response.InternalError(c, "Erro ao estimar tokens: "+err.Error())
 		return
 	}
@@ -468,6 +537,12 @@ func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
 		"characters":       len(text),
 		"words":            len(strings.Fields(text)),
 	}
+
+	logger.Info("Tokens estimated",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "EstimateTokens"),
+		zap.Int("estimated_tokens", tokens),
+	)
 
 	response.OK(c, data)
 }
@@ -486,12 +561,7 @@ func (h *RecipeHandler) EstimateTokens(c *gin.Context) {
 // @Router /api/v1/recipes/save [post]
 // @Security BearerAuth
 func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
@@ -504,7 +574,11 @@ func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+				logger.Error("Invalid user ID format",
+					zap.String(appLogger.FieldModule, "recipe"),
+					zap.String(appLogger.FieldFunction, "SaveRecipe"),
+					zap.Error(err),
+				)
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -525,10 +599,23 @@ func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
 		}
 
 		if err := h.recipeService.SaveMultipleRecipes(c.Request.Context(), recipePtrs, userID); err != nil {
-			zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+			logger.Error("Failed to save multiple recipes",
+				zap.String(appLogger.FieldModule, "recipe"),
+				zap.String(appLogger.FieldFunction, "SaveRecipe"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.Int(appLogger.FieldCount, len(recipesArray)),
+				zap.Error(err),
+			)
 			h.handleServiceError(c, err)
 			return
 		}
+
+		logger.Info("Multiple recipes saved successfully",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SaveRecipe"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Int(appLogger.FieldCount, len(recipesArray)),
+		)
 
 		message := "Receitas salvas com sucesso."
 		if len(recipesArray) == 1 {
@@ -544,16 +631,32 @@ func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
 	// Try to parse as single recipe
 	var singleRecipe recipeDTO.SaveRecipeDTO
 	if err := c.ShouldBindJSON(&singleRecipe); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid recipe save request",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SaveRecipe"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Dados de entrada inválidos: "+err.Error())
 		return
 	}
 
 	if err := h.recipeService.SaveRecipe(c.Request.Context(), &singleRecipe, userID); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.SaveRecipe"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to save recipe",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "SaveRecipe"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		h.handleServiceError(c, err)
 		return
 	}
+
+	logger.Info("Recipe saved successfully",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "SaveRecipe"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+	)
 
 	response.OK(c, map[string]interface{}{
 		"message": "Receita salva com sucesso.",
@@ -571,12 +674,7 @@ func (h *RecipeHandler) SaveRecipe(c *gin.Context) {
 // @Router /api/v1/recipes [get]
 // @Security BearerAuth
 func (h *RecipeHandler) GetRecipes(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
@@ -589,7 +687,11 @@ func (h *RecipeHandler) GetRecipes(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Error(err), zap.Any("params", __logParams))
+				logger.Error("Invalid user ID format",
+					zap.String(appLogger.FieldModule, "recipe"),
+					zap.String(appLogger.FieldFunction, "GetRecipes"),
+					zap.Error(err),
+				)
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -602,18 +704,35 @@ func (h *RecipeHandler) GetRecipes(c *gin.Context) {
 
 	recipes, err := h.recipeService.GetUserRecipes(c.Request.Context(), userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipes"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to get user recipes",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetRecipes"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
 		h.handleServiceError(c, err)
 		return
 	}
 
 	if len(recipes) == 0 {
+		logger.Info("No recipes found for user",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetRecipes"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+		)
 		response.OK(c, map[string]interface{}{
 			"message": "Nenhuma receita encontrada.",
 			"recipes": []interface{}{},
 		})
 		return
 	}
+
+	logger.Info("User recipes retrieved successfully",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "GetRecipes"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.Int(appLogger.FieldCount, len(recipes)),
+	)
 
 	response.OK(c, recipes)
 }
@@ -632,22 +751,26 @@ func (h *RecipeHandler) GetRecipes(c *gin.Context) {
 // @Router /api/v1/recipes/{id} [get]
 // @Security BearerAuth
 func (h *RecipeHandler) GetRecipeByID(c *gin.Context) {
-	__logParams := map[string]any{"handler": "RecipeHandler", "context": captureContextFields(c)}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Any("params", __logParams))
+	logger := appLogger.FromContext(c.Request.Context())
 
 	recipeID := c.Param("id")
 	if recipeID == "" {
+		logger.Warn("Recipe ID not provided",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetRecipeByID"),
+		)
 		response.BadRequest(c, "ID da receita não fornecido")
 		return
 	}
 
 	recipeUUID, err := uuid.Parse(recipeID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid recipe ID format",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetRecipeByID"),
+			zap.String("recipe_id", recipeID),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "ID da receita inválido: "+err.Error())
 		return
 	}
@@ -663,7 +786,11 @@ func (h *RecipeHandler) GetRecipeByID(c *gin.Context) {
 		if userString, ok := userIDInterface.(string); ok {
 			parsed, err := uuid.Parse(userString)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+				logger.Error("Invalid user ID format",
+					zap.String(appLogger.FieldModule, "recipe"),
+					zap.String(appLogger.FieldFunction, "GetRecipeByID"),
+					zap.Error(err),
+				)
 				response.Unauthorized(c, "user_id inválido no contexto")
 				return
 			}
@@ -676,10 +803,23 @@ func (h *RecipeHandler) GetRecipeByID(c *gin.Context) {
 
 	recipe, err := h.recipeService.GetRecipeByID(c.Request.Context(), recipeUUID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*RecipeHandler.GetRecipeByID"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to get recipe by ID",
+			zap.String(appLogger.FieldModule, "recipe"),
+			zap.String(appLogger.FieldFunction, "GetRecipeByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("recipe_id", recipeUUID.String()),
+			zap.Error(err),
+		)
 		h.handleServiceError(c, err)
 		return
 	}
+
+	logger.Info("Recipe retrieved by ID successfully",
+		zap.String(appLogger.FieldModule, "recipe"),
+		zap.String(appLogger.FieldFunction, "GetRecipeByID"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("recipe_id", recipeUUID.String()),
+	)
 
 	response.OK(c, recipe)
 }

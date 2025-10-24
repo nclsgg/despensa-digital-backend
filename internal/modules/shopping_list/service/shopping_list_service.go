@@ -19,6 +19,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/dto"
 	shoppingModel "github.com/nclsgg/despensa-digital/backend/internal/modules/shopping_list/model"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -77,37 +78,28 @@ func NewShoppingListService(
 	itemRepo itemDomain.ItemRepository,
 	profileRepo profileDomain.ProfileRepository,
 	llmService llmDomain.LLMService,
-) (result0 domain.ShoppingListService) {
-	__logParams := map[string]any{"shoppingListRepo": shoppingListRepo, "pantryRepo": pantryRepo, "itemRepo": itemRepo, "profileRepo": profileRepo, "llmService": llmService}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewShoppingListService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewShoppingListService"), zap.Any("params", __logParams))
-	result0 = &shoppingListService{
+) domain.ShoppingListService {
+	return &shoppingListService{
 		shoppingListRepo: shoppingListRepo,
 		pantryRepo:       pantryRepo,
 		itemRepo:         itemRepo,
 		profileRepo:      profileRepo,
 		llmService:       llmService,
 	}
-	return
 }
 
-func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uuid.UUID, input dto.CreateShoppingListDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "input": input}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Any("params", __logParams))
+func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uuid.UUID, input dto.CreateShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
 
 	preferences, err := s.resolvePreferences(ctx, userID, input.Preferences)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("Failed to resolve preferences",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	shoppingList := &shoppingModel.ShoppingList{
@@ -125,15 +117,23 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 	if input.PantryID != nil {
 		hasAccess, err := s.pantryRepo.IsUserInPantry(ctx, *input.PantryID, userID)
 		if err != nil {
-			zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-			result0 = nil
-			result1 = err
-			return
+			logger.Error("Failed to check pantry access",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("pantry_id", input.PantryID.String()),
+				zap.Error(err),
+			)
+			return nil, err
 		}
 		if !hasAccess {
-			result0 = nil
-			result1 = domain.ErrPantryAccessDenied
-			return
+			logger.Warn("Pantry access denied",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("pantry_id", input.PantryID.String()),
+			)
+			return nil, domain.ErrPantryAccessDenied
 		}
 	}
 
@@ -161,72 +161,100 @@ func (s *shoppingListService) CreateShoppingList(ctx context.Context, userID uui
 	shoppingList.ActualCost = actualTotal
 
 	if err := s.shoppingListRepo.Create(ctx, shoppingList); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("create shopping list: %w", err)
-		return
+		logger.Error("Failed to create shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("create shopping list: %w", err)
 	}
 
 	created, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to reload shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingList.ID.String()),
+			zap.Error(err),
+		)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrShoppingListNotFound
-			return
+			return nil, domain.ErrShoppingListNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("reload shopping list: %w", err)
-		return
+		return nil, fmt.Errorf("reload shopping list: %w", err)
 	}
-	result0 = s.convertToResponseDTO(ctx, created)
-	result1 = nil
-	return
+
+	logger.Info("Shopping list created successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "CreateShoppingList"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("shopping_list_id", created.ID.String()),
+		zap.Int(appLogger.FieldCount, len(created.Items)),
+	)
+
+	return s.convertToResponseDTO(ctx, created), nil
 }
 
-func (s *shoppingListService) GetShoppingListByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (result0 *dto.ShoppingListResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Any("params", __logParams))
+func (s *shoppingListService) GetShoppingListByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*dto.ShoppingListResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
+
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GetShoppingListByID"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrShoppingListNotFound
-			return
+			logger.Warn("Shopping list not found",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "GetShoppingListByID"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("shopping_list_id", id.String()),
+			)
+			return nil, domain.ErrShoppingListNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("get shopping list: %w", err)
-		return
+		logger.Error("Failed to get shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "GetShoppingListByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("Unauthorized access to shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "GetShoppingListByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.String("owner_id", shoppingList.UserID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
-	result0 = s.convertToResponseDTO(ctx, shoppingList)
-	result1 = nil
-	return
+
+	logger.Info("Shopping list retrieved successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "GetShoppingListByID"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("shopping_list_id", id.String()),
+	)
+
+	return s.convertToResponseDTO(ctx, shoppingList), nil
 }
 
-func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) (result0 []*dto.ShoppingListSummaryDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "limit": limit, "offset": offset}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Any("params", __logParams))
+func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*dto.ShoppingListSummaryDTO, error) {
+	logger := appLogger.FromContext(ctx)
+
 	shoppingLists, err := s.shoppingListRepo.GetByUserID(ctx, userID, limit, offset)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.GetShoppingListsByUserID"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("error getting shopping lists: %w", err)
-		return
+		logger.Error("Failed to get shopping lists",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "GetShoppingListsByUserID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Int("limit", limit),
+			zap.Int("offset", offset),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("error getting shopping lists: %w", err)
 	}
 
 	pantryNames := s.resolvePantryNames(ctx, shoppingLists)
@@ -268,35 +296,50 @@ func (s *shoppingListService) GetShoppingListsByUserID(ctx context.Context, user
 			UpdatedAt:      sl.UpdatedAt.Format(time.RFC3339),
 		})
 	}
-	result0 = summaries
-	result1 = nil
-	return
+
+	logger.Info("Shopping lists retrieved successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "GetShoppingListsByUserID"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.Int(appLogger.FieldCount, len(summaries)),
+	)
+
+	return summaries, nil
 }
 
-func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id, "input": input}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Any("params", __logParams))
+func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID, input dto.UpdateShoppingListDTO) (*dto.ShoppingListResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
+
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrShoppingListNotFound
-			return
+			logger.Warn("Shopping list not found for update",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("shopping_list_id", id.String()),
+			)
+			return nil, domain.ErrShoppingListNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("get shopping list: %w", err)
-		return
+		logger.Error("Failed to get shopping list for update",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("Unauthorized shopping list update attempt",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.String("owner_id", shoppingList.UserID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	if input.Name != nil {
@@ -325,10 +368,14 @@ func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uui
 		if targetStatus == "completed" && shoppingList.Status != "completed" {
 			cost, err := s.performCheckout(ctx, userID, shoppingList)
 			if err != nil {
-				zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-				result0 = nil
-				result1 = err
-				return
+				logger.Error("Failed to perform checkout",
+					zap.String(appLogger.FieldModule, "shopping_list"),
+					zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+					zap.String(appLogger.FieldUserID, userID.String()),
+					zap.String("shopping_list_id", id.String()),
+					zap.Error(err),
+				)
+				return nil, err
 			}
 			checkoutPerformed = true
 			checkoutCost = cost
@@ -343,87 +390,132 @@ func (s *shoppingListService) UpdateShoppingList(ctx context.Context, userID uui
 	}
 
 	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("update shopping list: %w", err)
-		return
+		logger.Error("Failed to update shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("update shopping list: %w", err)
 	}
 
 	updated, err := s.shoppingListRepo.GetByID(ctx, shoppingList.ID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.UpdateShoppingList"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to reload updated shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrShoppingListNotFound
-			return
+			return nil, domain.ErrShoppingListNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("reload shopping list: %w", err)
-		return
+		return nil, fmt.Errorf("reload shopping list: %w", err)
 	}
-	result0 = s.convertToResponseDTO(ctx, updated)
-	result1 = nil
-	return
+
+	logger.Info("Shopping list updated successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "UpdateShoppingList"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("shopping_list_id", id.String()),
+		zap.Bool("checkout_performed", checkoutPerformed),
+	)
+
+	return s.convertToResponseDTO(ctx, updated), nil
 }
 
-func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) (result0 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "id": id}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Any("params", __logParams))
+func (s *shoppingListService) DeleteShoppingList(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
+	logger := appLogger.FromContext(ctx)
+
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = domain.ErrShoppingListNotFound
-			return
+			logger.Warn("Shopping list not found for deletion",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "DeleteShoppingList"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("shopping_list_id", id.String()),
+			)
+			return domain.ErrShoppingListNotFound
 		}
-		result0 = fmt.Errorf("get shopping list: %w", err)
-		return
+		logger.Error("Failed to get shopping list for deletion",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "DeleteShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
+		return fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		result0 = domain.ErrUnauthorized
-		return
+		logger.Warn("Unauthorized shopping list deletion attempt",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "DeleteShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.String("owner_id", shoppingList.UserID.String()),
+		)
+		return domain.ErrUnauthorized
 	}
 
 	if err := s.shoppingListRepo.Delete(ctx, id); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.DeleteShoppingList"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = fmt.Errorf("delete shopping list: %w", err)
-		return
+		logger.Error("Failed to delete shopping list",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "DeleteShoppingList"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", id.String()),
+			zap.Error(err),
+		)
+		return fmt.Errorf("delete shopping list: %w", err)
 	}
-	result0 = nil
-	return
+
+	logger.Info("Shopping list deleted successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "DeleteShoppingList"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("shopping_list_id", id.String()),
+	)
+
+	return nil
 }
 
-func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, input dto.CreateShoppingListItemDTO) (result0 *dto.ShoppingListResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "shoppingListID": shoppingListID, "input": input}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Any("params", __logParams))
+func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, input dto.CreateShoppingListItemDTO) (*dto.ShoppingListResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
 
 	// Get shopping list and verify ownership
 	shoppingList, err := s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrShoppingListNotFound
-			return
+			logger.Warn("Shopping list not found for item creation",
+				zap.String(appLogger.FieldModule, "shopping_list"),
+				zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+				zap.String("shopping_list_id", shoppingListID.String()),
+			)
+			return nil, domain.ErrShoppingListNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("get shopping list: %w", err)
-		return
+		logger.Error("Failed to get shopping list for item creation",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingListID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("get shopping list: %w", err)
 	}
 
 	if shoppingList.UserID != userID {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("Unauthorized shopping list item creation attempt",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingListID.String()),
+			zap.String("owner_id", shoppingList.UserID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	priority := input.Priority
@@ -448,19 +540,27 @@ func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID
 
 	// Save the new item
 	if err := s.shoppingListRepo.CreateItem(ctx, newItem); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("create shopping list item: %w", err)
-		return
+		logger.Error("Failed to create shopping list item",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingListID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("create shopping list item: %w", err)
 	}
 
 	// Reload shopping list to get all items including the new one
 	shoppingList, err = s.shoppingListRepo.GetByID(ctx, shoppingListID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("reload shopping list: %w", err)
-		return
+		logger.Error("Failed to reload shopping list after item creation",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingListID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("reload shopping list: %w", err)
 	}
 
 	// Recalculate totals
@@ -470,16 +570,26 @@ func (s *shoppingListService) CreateShoppingListItem(ctx context.Context, userID
 
 	// Update shopping list with new totals
 	if err := s.shoppingListRepo.Update(ctx, shoppingList); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*shoppingListService.CreateShoppingListItem"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("update shopping list totals: %w", err)
-		return
+		logger.Error("Failed to update shopping list totals",
+			zap.String(appLogger.FieldModule, "shopping_list"),
+			zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("shopping_list_id", shoppingListID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("update shopping list totals: %w", err)
 	}
 
+	logger.Info("Shopping list item created successfully",
+		zap.String(appLogger.FieldModule, "shopping_list"),
+		zap.String(appLogger.FieldFunction, "CreateShoppingListItem"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("shopping_list_id", shoppingListID.String()),
+		zap.String("item_name", newItem.Name),
+	)
+
 	// Return the full shopping list with the new item
-	result0 = s.convertToResponseDTO(ctx, shoppingList)
-	result1 = nil
-	return
+	return s.convertToResponseDTO(ctx, shoppingList), nil
 }
 
 func (s *shoppingListService) UpdateShoppingListItem(ctx context.Context, userID uuid.UUID, shoppingListID uuid.UUID, itemID uuid.UUID, input dto.UpdateShoppingListItemDTO) (result0 *dto.ShoppingListItemResponseDTO, result1 error) {

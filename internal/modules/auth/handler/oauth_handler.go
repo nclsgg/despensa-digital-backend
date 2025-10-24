@@ -20,6 +20,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/auth/model"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"github.com/nclsgg/despensa-digital/backend/pkg/response"
 	"go.uber.org/zap"
 )
@@ -29,27 +30,12 @@ type oauthHandler struct {
 	cfg     *config.Config
 }
 
-func NewOAuthHandler(service domain.AuthService, cfg *config.Config) (result0 *oauthHandler) {
-	__logParams := map[string]any{"service": service, "cfg": cfg}
-	__logStart :=
-
-		// InitOAuth initializes OAuth providers
-		time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewOAuthHandler"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewOAuthHandler"), zap.Any("params", __logParams))
-	result0 = &oauthHandler{service: service, cfg: cfg}
-	return
+func NewOAuthHandler(service domain.AuthService, cfg *config.Config) *oauthHandler {
+	return &oauthHandler{service: service, cfg: cfg}
 }
 
+// InitOAuth initializes OAuth providers
 func (h *oauthHandler) InitOAuth() {
-	__logParams := map[string]any{"h": h}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.InitOAuth"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.InitOAuth"), zap.Any("params", __logParams))
 	key := h.cfg.SessionSecret
 	if len(key) < 32 {
 		key = "fallback-session-secret-for-development-only-32-chars"
@@ -94,25 +80,6 @@ func (h *oauthHandler) InitOAuth() {
 // @Success 302 "Redirect to OAuth provider"
 // @Router /auth/oauth/{provider} [get]
 func (h *oauthHandler) OAuthLogin(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.OAuthLogin"), zap.Any("result", nil),
-
-			// OAuthCallback handles OAuth callback
-			// @Summary OAuth callback
-			// @Tags OAuth
-			// @Produce json
-			// @Param provider path string true "OAuth Provider (google)"
-			// @Param code query string true "OAuth code"
-			// @Param state query string true "OAuth state"
-			// @Success 200 {object} response.LoginSuccessResponse
-			// @Failure 400 {object} response.APIResponse
-			// @Failure 500 {object} response.APIResponse
-			// @Router /auth/oauth/{provider}/callback [get]
-			zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.OAuthLogin"), zap.Any("params", __logParams))
 	provider := c.Param("provider")
 	if provider != "google" {
 		h.handleAuthError(c, domain.ErrProviderNotSupported)
@@ -138,13 +105,21 @@ func (h *oauthHandler) OAuthLogin(c *gin.Context) {
 	h.ginGothicBeginAuth(c)
 }
 
+// OAuthCallback handles OAuth callback
+// @Summary OAuth callback
+// @Tags OAuth
+// @Produce json
+// @Param provider path string true "OAuth Provider (google)"
+// @Param code query string true "OAuth code"
+// @Param state query string true "OAuth state"
+// @Success 200 {object} response.LoginSuccessResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/oauth/{provider}/callback [get]
 func (h *oauthHandler) OAuthCallback(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.OAuthCallback"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.OAuthCallback"), zap.Any("params", __logParams))
+	ctx := c.Request.Context()
+	logger := appLogger.FromContext(ctx)
+
 	provider := c.Param("provider")
 	if provider != "google" {
 		h.handleAuthError(c, domain.ErrProviderNotSupported)
@@ -153,21 +128,39 @@ func (h *oauthHandler) OAuthCallback(c *gin.Context) {
 
 	gothUser, err := h.ginGothicCompleteAuth(c)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.OAuthCallback"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to complete OAuth authentication",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "OAuthCallback"),
+			zap.String(appLogger.FieldAction, "complete_auth"),
+			zap.String("provider", provider),
+			zap.Error(err),
+		)
 		response.InternalError(c, "Failed to complete auth")
 		return
 	}
 
-	user, err := h.findOrCreateUser(c.Request.Context(), gothUser)
+	user, err := h.findOrCreateUser(ctx, gothUser)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.OAuthCallback"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to find or create user",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "OAuthCallback"),
+			zap.String(appLogger.FieldAction, "find_or_create_user"),
+			zap.String(appLogger.FieldEmail, appLogger.SanitizeEmail(gothUser.Email)),
+			zap.Error(err),
+		)
 		h.handleAuthError(c, err)
 		return
 	}
 
 	accessToken, err := h.service.GenerateAccessToken(user)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.OAuthCallback"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Error("Failed to generate access token",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "OAuthCallback"),
+			zap.String(appLogger.FieldAction, "generate_token"),
+			zap.String(appLogger.FieldUserID, user.ID.String()),
+			zap.Error(err),
+		)
 		response.InternalError(c, "Failed to generate access token")
 		return
 	}
@@ -209,31 +202,33 @@ func (h *oauthHandler) OAuthCallback(c *gin.Context) {
 	}
 
 	var redirectURL string
-	zap.L().Info("OAuth callback redirect decision",
-		zap.Bool("isMobile", isMobile),
-		zap.String("stateParam", c.Query("state")),
-	)
 
 	if isMobile {
-		// Redirect to deep link for mobile app
-		zap.L().Info("Redirecting to mobile app", zap.String("data", string(authData)))
 		redirectURL = fmt.Sprintf("despensadigital://auth/callback?data=%s", url.QueryEscape(string(authData)))
+		logger.Info("OAuth callback redirecting to mobile app",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "OAuthCallback"),
+			zap.String(appLogger.FieldAction, "redirect"),
+			zap.String(appLogger.FieldUserID, user.ID.String()),
+			zap.Bool("is_mobile", true),
+		)
 	} else {
-		// Redirect to web frontend
-		zap.L().Info("Redirecting to web frontend", zap.String("data", string(authData)))
 		redirectURL = fmt.Sprintf("%s/auth/callback?data=%s", frontendURL, url.QueryEscape(string(authData)))
+		logger.Info("OAuth callback redirecting to web frontend",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "OAuthCallback"),
+			zap.String(appLogger.FieldAction, "redirect"),
+			zap.String(appLogger.FieldUserID, user.ID.String()),
+			zap.Bool("is_mobile", false),
+		)
 	}
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
-func (h *oauthHandler) findOrCreateUser(ctx context.Context, gothUser goth.User) (result0 *model.User, result1 error) {
-	__logParams := map[string]any{"h": h, "ctx": ctx, "gothUser": gothUser}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.findOrCreateUser"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.findOrCreateUser"), zap.Any("params", __logParams))
+func (h *oauthHandler) findOrCreateUser(ctx context.Context, gothUser goth.User) (*model.User, error) {
+	logger := appLogger.FromContext(ctx)
+
 	user, err := h.service.GetUserByEmail(ctx, gothUser.Email)
 	if err == nil {
 		if gothUser.Name != "" && !user.ProfileCompleted {
@@ -246,15 +241,26 @@ func (h *oauthHandler) findOrCreateUser(ctx context.Context, gothUser goth.User)
 				user.ProfileCompleted = true
 			}
 		}
-		result0 = user
-		result1 = nil
-		return
+
+		logger.Info("Found existing OAuth user",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "findOrCreateUser"),
+			zap.String(appLogger.FieldAction, "user_found"),
+			zap.String(appLogger.FieldUserID, user.ID.String()),
+			zap.String(appLogger.FieldEmail, appLogger.SanitizeEmail(gothUser.Email)),
+		)
+		return user, nil
 	}
 
 	if !errors.Is(err, domain.ErrUserNotFound) {
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("Error getting user by email",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "findOrCreateUser"),
+			zap.String(appLogger.FieldAction, "get_user"),
+			zap.String(appLogger.FieldEmail, appLogger.SanitizeEmail(gothUser.Email)),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	newUser := &model.User{
@@ -275,23 +281,27 @@ func (h *oauthHandler) findOrCreateUser(ctx context.Context, gothUser goth.User)
 	}
 
 	if err := h.service.CreateUserOAuth(ctx, newUser); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.findOrCreateUser"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("Failed to create OAuth user",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "findOrCreateUser"),
+			zap.String(appLogger.FieldAction, "create_user"),
+			zap.String(appLogger.FieldEmail, appLogger.SanitizeEmail(gothUser.Email)),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = newUser
-	result1 = nil
-	return
+
+	logger.Info("Created new OAuth user",
+		zap.String(appLogger.FieldModule, "auth"),
+		zap.String(appLogger.FieldFunction, "findOrCreateUser"),
+		zap.String(appLogger.FieldAction, "user_created"),
+		zap.String(appLogger.FieldUserID, newUser.ID.String()),
+		zap.String(appLogger.FieldEmail, appLogger.SanitizeEmail(gothUser.Email)),
+	)
+	return newUser, nil
 }
 
 func (h *oauthHandler) handleAuthError(c *gin.Context, err error) {
-	__logParams := map[string]any{"h": h, "c": c, "err": err}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.handleAuthError"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.handleAuthError"), zap.Any("params", __logParams))
 	switch {
 	case errors.Is(err, domain.ErrProviderNotSupported):
 		response.BadRequest(c, "Provider not supported")
@@ -307,26 +317,13 @@ func (h *oauthHandler) handleAuthError(c *gin.Context, err error) {
 }
 
 func (h *oauthHandler) ginGothicBeginAuth(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.ginGothicBeginAuth"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.ginGothicBeginAuth"), zap.Any("params", __logParams))
 	writer := &ginResponseWriter{c.Writer, c}
 	gothic.BeginAuthHandler(writer, c.Request)
 }
 
-func (h *oauthHandler) ginGothicCompleteAuth(c *gin.Context) (result0 goth.User, result1 error) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.ginGothicCompleteAuth"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.ginGothicCompleteAuth"), zap.Any("params", __logParams))
+func (h *oauthHandler) ginGothicCompleteAuth(c *gin.Context) (goth.User, error) {
 	writer := &ginResponseWriter{c.Writer, c}
-	result0, result1 = gothic.CompleteUserAuth(writer, c.Request)
-	return
+	return gothic.CompleteUserAuth(writer, c.Request)
 }
 
 type ginResponseWriter struct {
@@ -334,57 +331,32 @@ type ginResponseWriter struct {
 	ctx *gin.Context
 }
 
-func (w *ginResponseWriter) Header() (result0 http.Header) {
-	__logParams := map[string]any{"w": w}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*ginResponseWriter.Header"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String(
-
-		// CompleteProfile completes user profile with first and last name
-		// @Summary Complete user profile
-		// @Tags Auth
-		// @Accept json
-		// @Produce json
-		// @Param request body dto.UpdateProfileRequest true "Profile data"
-		// @Success 200 {object} response.APIResponse
-		// @Failure 400 {object} response.APIResponse
-		// @Failure 500 {object} response.APIResponse
-		// @Router /auth/complete-profile [patch]
-		"func", "*ginResponseWriter.Header"), zap.Any("params", __logParams))
-	result0 = w.ResponseWriter.Header()
-	return
+func (w *ginResponseWriter) Header() http.Header {
+	return w.ResponseWriter.Header()
 }
 
-func (w *ginResponseWriter) Write(data []byte) (result0 int, result1 error) {
-	__logParams := map[string]any{"w": w, "data": data}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*ginResponseWriter.Write"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*ginResponseWriter.Write"), zap.Any("params", __logParams))
-	result0, result1 = w.ResponseWriter.Write(data)
-	return
+func (w *ginResponseWriter) Write(data []byte) (int, error) {
+	return w.ResponseWriter.Write(data)
 }
 
 func (w *ginResponseWriter) WriteHeader(statusCode int) {
-	__logParams := map[string]any{"w": w, "statusCode": statusCode}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*ginResponseWriter.WriteHeader"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*ginResponseWriter.WriteHeader"), zap.Any("params", __logParams))
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+// CompleteProfile completes user profile with first and last name
+// @Summary Complete user profile
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.UpdateProfileRequest true "Profile data"
+// @Success 200 {object} response.APIResponse
+// @Failure 400 {object} response.APIResponse
+// @Failure 500 {object} response.APIResponse
+// @Router /auth/complete-profile [patch]
 func (h *oauthHandler) CompleteProfile(c *gin.Context) {
-	__logParams := map[string]any{"h": h, "c": c}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*oauthHandler.CompleteProfile"), zap.Any("result", nil), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*oauthHandler.CompleteProfile"), zap.Any("params", __logParams))
+	ctx := c.Request.Context()
+	logger := appLogger.FromContext(ctx)
+
 	userID, exists := c.Get("userID")
 	if !exists {
 		response.Unauthorized(c, "User not authenticated")
@@ -393,16 +365,34 @@ func (h *oauthHandler) CompleteProfile(c *gin.Context) {
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
+		logger.Warn("Invalid profile update request",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "CompleteProfile"),
+			zap.String(appLogger.FieldAction, "bind_json"),
+			zap.Error(err),
+		)
 		response.BadRequest(c, "Invalid request data")
 		return
 	}
 
-	if err := h.service.CompleteProfile(c.Request.Context(), userID.(uuid.UUID), req.FirstName, req.LastName); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*oauthHandler.CompleteProfile"), zap.Error(err), zap.Any("params", __logParams))
+	uid := userID.(uuid.UUID)
+	if err := h.service.CompleteProfile(ctx, uid, req.FirstName, req.LastName); err != nil {
+		logger.Error("Failed to complete profile",
+			zap.String(appLogger.FieldModule, "auth"),
+			zap.String(appLogger.FieldFunction, "CompleteProfile"),
+			zap.String(appLogger.FieldAction, "complete_profile"),
+			zap.String(appLogger.FieldUserID, uid.String()),
+			zap.Error(err),
+		)
 		h.handleAuthError(c, err)
 		return
 	}
 
+	logger.Info("Profile completed successfully",
+		zap.String(appLogger.FieldModule, "auth"),
+		zap.String(appLogger.FieldFunction, "CompleteProfile"),
+		zap.String(appLogger.FieldAction, "complete_profile"),
+		zap.String(appLogger.FieldUserID, uid.String()),
+	)
 	response.OK(c, gin.H{"message": "Profile updated successfully"})
 }

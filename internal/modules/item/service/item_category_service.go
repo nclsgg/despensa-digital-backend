@@ -10,6 +10,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/item/model"
 	pantryDomain "github.com/nclsgg/despensa-digital/backend/internal/modules/pantry/domain"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -19,43 +20,43 @@ type itemCategoryService struct {
 	pantryRepo pantryDomain.PantryRepository
 }
 
-func NewItemCategoryService(repo domain.ItemCategoryRepository, pantryRepo pantryDomain.PantryRepository) (result0 domain.ItemCategoryService) {
-	__logParams := map[string]any{"repo": repo, "pantryRepo": pantryRepo}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewItemCategoryService"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewItemCategoryService"), zap.Any("params", __logParams))
-	result0 = &itemCategoryService{repo: repo, pantryRepo: pantryRepo}
-	return
+func NewItemCategoryService(repo domain.ItemCategoryRepository, pantryRepo pantryDomain.PantryRepository) domain.ItemCategoryService {
+	return &itemCategoryService{repo: repo, pantryRepo: pantryRepo}
 }
 
-func (s *itemCategoryService) Create(ctx context.Context, input dto.CreateItemCategoryDTO, userID uuid.UUID) (result0 *dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "input": input, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.Create"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.Create"), zap.Any("params", __logParams))
+func (s *itemCategoryService) Create(ctx context.Context, input dto.CreateItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	pantryID, err := uuid.Parse(input.PantryID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Create"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = domain.ErrInvalidPantry
-		return
+		logger.Warn("invalid pantry ID",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Create"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, domain.ErrInvalidPantry
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Create"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to check pantry membership",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Create"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 	if !isMember {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized pantry access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Create"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	now := time.Now().UTC()
@@ -70,23 +71,29 @@ func (s *itemCategoryService) Create(ctx context.Context, input dto.CreateItemCa
 		UpdatedAt: now,
 	}
 	if err := s.repo.Create(ctx, itemCategory); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Create"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to create item category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Create"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponse(itemCategory)
-	result1 = nil
-	return
+
+	logger.Info("item category created",
+		zap.String(appLogger.FieldModule, "item_category"),
+		zap.String(appLogger.FieldFunction, "Create"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("category_id", itemCategory.ID.String()),
+		zap.String("pantry_id", pantryID.String()),
+	)
+	return toItemCategoryResponse(itemCategory), nil
 }
 
-func (s *itemCategoryService) CreateDefault(ctx context.Context, input dto.CreateDefaultItemCategoryDTO, userID uuid.UUID) (result0 *dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "input": input, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.CreateDefault"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.CreateDefault"), zap.Any("params", __logParams))
+func (s *itemCategoryService) CreateDefault(ctx context.Context, input dto.CreateDefaultItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	now := time.Now().UTC()
 	itemCategory := &model.ItemCategory{
 		ID:        uuid.New(),
@@ -99,53 +106,71 @@ func (s *itemCategoryService) CreateDefault(ctx context.Context, input dto.Creat
 	}
 
 	if err := s.repo.Create(ctx, itemCategory); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.CreateDefault"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to create default item category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CreateDefault"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponse(itemCategory)
-	result1 = nil
-	return
+
+	logger.Info("default item category created",
+		zap.String(appLogger.FieldModule, "item_category"),
+		zap.String(appLogger.FieldFunction, "CreateDefault"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("category_id", itemCategory.ID.String()),
+	)
+	return toItemCategoryResponse(itemCategory), nil
 }
 
-func (s *itemCategoryService) CloneDefaultCategoryToPantry(ctx context.Context, defaultCategoryID, pantryID uuid.UUID, userID uuid.UUID) (result0 *dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "defaultCategoryID": defaultCategoryID, "pantryID": pantryID, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.CloneDefaultCategoryToPantry"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.CloneDefaultCategoryToPantry"), zap.Any("params", __logParams))
+func (s *itemCategoryService) CloneDefaultCategoryToPantry(ctx context.Context, defaultCategoryID, pantryID uuid.UUID, userID uuid.UUID) (*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.CloneDefaultCategoryToPantry"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to check pantry membership",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 	if !isMember {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized pantry access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	defaultCat, err := s.repo.FindByID(ctx, defaultCategoryID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.CloneDefaultCategoryToPantry"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrCategoryNotFound
-			return
+			return nil, domain.ErrCategoryNotFound
 		}
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to find default category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", defaultCategoryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	if !defaultCat.IsDefault {
-		result0 = nil
-		result1 = domain.ErrCategoryNotDefault
-		return
+		logger.Warn("category is not default",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", defaultCategoryID.String()),
+		)
+		return nil, domain.ErrCategoryNotDefault
 	}
 
 	now := time.Now().UTC()
@@ -161,188 +186,224 @@ func (s *itemCategoryService) CloneDefaultCategoryToPantry(ctx context.Context, 
 	}
 
 	if err := s.repo.Create(ctx, newCategory); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.CloneDefaultCategoryToPantry"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to clone category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponse(newCategory)
-	result1 = nil
-	return
+
+	logger.Info("category cloned to pantry",
+		zap.String(appLogger.FieldModule, "item_category"),
+		zap.String(appLogger.FieldFunction, "CloneDefaultCategoryToPantry"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("category_id", newCategory.ID.String()),
+		zap.String("pantry_id", pantryID.String()),
+	)
+	return toItemCategoryResponse(newCategory), nil
 }
 
-func (s *itemCategoryService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemCategoryDTO, userID uuid.UUID) (result0 *dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "input": input, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.Update"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.Update"), zap.Any("params", __logParams))
+func (s *itemCategoryService) Update(ctx context.Context, id uuid.UUID, input dto.UpdateItemCategoryDTO, userID uuid.UUID) (*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	itemCategory, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Update"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrCategoryNotFound
-			return
+			return nil, domain.ErrCategoryNotFound
 		}
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to find category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Update"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, itemCategory.PantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Update"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to check pantry membership",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Update"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", itemCategory.PantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 	if !isMember {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized pantry access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Update"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", itemCategory.PantryID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	itemCategory.ApplyUpdate(input)
 	itemCategory.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(ctx, itemCategory); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Update"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to update category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Update"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponse(itemCategory)
-	result1 = nil
-	return
+
+	logger.Info("category updated",
+		zap.String(appLogger.FieldModule, "item_category"),
+		zap.String(appLogger.FieldFunction, "Update"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("category_id", id.String()),
+	)
+	return toItemCategoryResponse(itemCategory), nil
 }
 
-func (s *itemCategoryService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (result0 *dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.FindByID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.FindByID"), zap.Any("params", __logParams))
+func (s *itemCategoryService) FindByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	itemCategory, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.FindByID"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrCategoryNotFound
-			return
+			return nil, domain.ErrCategoryNotFound
 		}
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to find category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "FindByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", id.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, itemCategory.PantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.FindByID"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to check pantry membership",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "FindByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", itemCategory.PantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 	if !isMember {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized pantry access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "FindByID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", itemCategory.PantryID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
-	result0 = toItemCategoryResponse(itemCategory)
-	result1 = nil
-	return
+	return toItemCategoryResponse(itemCategory), nil
 }
 
-func (s *itemCategoryService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) (result0 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "id": id, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.Delete"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.Delete"), zap.Any("params", __logParams))
+func (s *itemCategoryService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	logger := appLogger.FromContext(ctx)
+
 	itemCategory, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.Delete"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = domain.ErrCategoryNotFound
-			return
+			return domain.ErrCategoryNotFound
 		}
-		result0 = err
-		return
+		logger.Error("failed to find category",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Delete"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", id.String()),
+			zap.Error(err),
+		)
+		return err
 	}
 
 	isOwner := itemCategory.AddedBy == userID
 	if !isOwner {
-		result0 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized category access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "Delete"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("category_id", id.String()),
+		)
+		return domain.ErrUnauthorized
 	}
-	result0 = s.repo.Delete(ctx, id)
-	return
+
+	logger.Info("category deleted",
+		zap.String(appLogger.FieldModule, "item_category"),
+		zap.String(appLogger.FieldFunction, "Delete"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("category_id", id.String()),
+	)
+	return s.repo.Delete(ctx, id)
 }
 
-func (s *itemCategoryService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) (result0 []*dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "pantryID": pantryID, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.ListByPantryID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.ListByPantryID"), zap.Any("params", __logParams))
+func (s *itemCategoryService) ListByPantryID(ctx context.Context, pantryID uuid.UUID, userID uuid.UUID) ([]*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	isMember, err := s.pantryRepo.IsUserInPantry(ctx, pantryID, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.ListByPantryID"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to check pantry membership",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "ListByPantryID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
 	if !isMember {
-		result0 = nil
-		result1 = domain.ErrUnauthorized
-		return
+		logger.Warn("unauthorized pantry access",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "ListByPantryID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+		)
+		return nil, domain.ErrUnauthorized
 	}
 
 	itemCategories, err := s.repo.ListByPantryID(ctx, pantryID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.ListByPantryID"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to list categories",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "ListByPantryID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("pantry_id", pantryID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponseList(itemCategories)
-	result1 = nil
-	return
+	return toItemCategoryResponseList(itemCategories), nil
 }
 
-func (s *itemCategoryService) ListByUserID(ctx context.Context, userID uuid.UUID) (result0 []*dto.ItemCategoryResponse, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*itemCategoryService.ListByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*itemCategoryService.ListByUserID"), zap.Any("params", __logParams))
+func (s *itemCategoryService) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*dto.ItemCategoryResponse, error) {
+	logger := appLogger.FromContext(ctx)
+
 	itemCategories, err := s.repo.ListByUserID(ctx, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*itemCategoryService.ListByUserID"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = err
-		return
+		logger.Error("failed to list categories by user",
+			zap.String(appLogger.FieldModule, "item_category"),
+			zap.String(appLogger.FieldFunction, "ListByUserID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, err
 	}
-	result0 = toItemCategoryResponseList(itemCategories)
-	result1 = nil
-	return
+	return toItemCategoryResponseList(itemCategories), nil
 }
 
-func toItemCategoryResponse(category *model.ItemCategory) (result0 *dto.ItemCategoryResponse) {
-	__logParams := map[string]any{"category": category}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "toItemCategoryResponse"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "toItemCategoryResponse"), zap.Any("params", __logParams))
+func toItemCategoryResponse(category *model.ItemCategory) *dto.ItemCategoryResponse {
 	if category == nil {
-		result0 = nil
-		return
+		return nil
 	}
 
 	var deletedAt *string
@@ -350,7 +411,7 @@ func toItemCategoryResponse(category *model.ItemCategory) (result0 *dto.ItemCate
 		formatted := category.DeletedAt.Time.UTC().Format(time.RFC3339)
 		deletedAt = &formatted
 	}
-	result0 = &dto.ItemCategoryResponse{
+	return &dto.ItemCategoryResponse{
 		ID:        category.ID.String(),
 		PantryID:  category.PantryID.String(),
 		AddedBy:   category.AddedBy.String(),
@@ -361,20 +422,12 @@ func toItemCategoryResponse(category *model.ItemCategory) (result0 *dto.ItemCate
 		UpdatedAt: category.UpdatedAt.UTC().Format(time.RFC3339),
 		DeletedAt: deletedAt,
 	}
-	return
 }
 
-func toItemCategoryResponseList(categories []*model.ItemCategory) (result0 []*dto.ItemCategoryResponse) {
-	__logParams := map[string]any{"categories": categories}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "toItemCategoryResponseList"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "toItemCategoryResponseList"), zap.Any("params", __logParams))
+func toItemCategoryResponseList(categories []*model.ItemCategory) []*dto.ItemCategoryResponse {
 	responses := make([]*dto.ItemCategoryResponse, 0, len(categories))
 	for _, category := range categories {
 		responses = append(responses, toItemCategoryResponse(category))
 	}
-	result0 = responses
-	return
+	return responses
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/profile/domain"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/profile/dto"
 	"github.com/nclsgg/despensa-digital/backend/internal/modules/profile/model"
+	appLogger "github.com/nclsgg/despensa-digital/backend/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -18,40 +19,33 @@ type profileService struct {
 	profileRepo domain.ProfileRepository
 }
 
-func NewProfileService(profileRepo domain.ProfileRepository) (result0 domain.ProfileService) {
-	__logParams := map[string]any{"profileRepo": profileRepo}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "NewProfileService"), zap.Any("result", result0), zap.Duration("duration", time.
-
-			// Check if profile already exists
-			Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "NewProfileService"), zap.Any("params", __logParams))
-	result0 = &profileService{
+func NewProfileService(profileRepo domain.ProfileRepository) domain.ProfileService {
+	return &profileService{
 		profileRepo: profileRepo,
 	}
-	return
 }
 
-func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, input dto.CreateProfileDTO) (result0 *dto.ProfileResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "input": input}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*profileService.CreateProfile"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*profileService.CreateProfile"), zap.Any("params", __logParams))
+func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, input dto.CreateProfileDTO) (*dto.ProfileResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
 
+	// Check if profile already exists
 	existingProfile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err == nil && existingProfile != nil {
-		result0 = nil
-		result1 = domain.ErrProfileAlreadyExists
-		return
+		logger.Warn("Profile already exists for user",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "CreateProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+		)
+		return nil, domain.ErrProfileAlreadyExists
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		result0 = nil
-		result1 = fmt.Errorf("check existing profile: %w", err)
-		return
+		logger.Error("Failed to check existing profile",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "CreateProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("check existing profile: %w", err)
 	}
 
 	profile := &model.Profile{
@@ -65,63 +59,80 @@ func (s *profileService) CreateProfile(ctx context.Context, userID uuid.UUID, in
 	}
 
 	if err := s.profileRepo.Create(ctx, profile); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.CreateProfile"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("create profile: %w", err)
-		return
+		logger.Error("Failed to create profile",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "CreateProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("create profile: %w", err)
 	}
-	result0 = s.convertToResponseDTO(profile)
-	result1 = nil
-	return
+
+	logger.Info("Profile created successfully",
+		zap.String(appLogger.FieldModule, "profile"),
+		zap.String(appLogger.FieldFunction, "CreateProfile"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("profile_id", profile.ID.String()),
+	)
+
+	return s.convertToResponseDTO(profile), nil
 }
 
-func (s *profileService) GetProfileByUserID(ctx context.Context, userID uuid.UUID) (result0 *dto.ProfileResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*profileService.GetProfileByUserID"), zap.Any("result", map[string]any{"result0": result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*profileService.GetProfileByUserID"), zap.Any("params", __logParams))
+func (s *profileService) GetProfileByUserID(ctx context.Context, userID uuid.UUID) (*dto.ProfileResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
+
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.GetProfileByUserID"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrProfileNotFound
-			return
+			logger.Warn("Profile not found for user",
+				zap.String(appLogger.FieldModule, "profile"),
+				zap.String(appLogger.FieldFunction, "GetProfileByUserID"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
+			return nil, domain.ErrProfileNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("get profile: %w", err)
-		return
+		logger.Error("Failed to get profile",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "GetProfileByUserID"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
-	result0 = s.convertToResponseDTO(profile)
-	result1 = nil
-	return
+
+	logger.Info("Profile retrieved successfully",
+		zap.String(appLogger.FieldModule, "profile"),
+		zap.String(appLogger.FieldFunction, "GetProfileByUserID"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("profile_id", profile.ID.String()),
+	)
+
+	return s.convertToResponseDTO(profile), nil
 }
 
-func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, input dto.UpdateProfileDTO) (result0 *dto.ProfileResponseDTO, result1 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID, "input": input}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*profileService.UpdateProfile"), zap.Any("result", map[string]any{"result0":
+func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, input dto.UpdateProfileDTO) (*dto.ProfileResponseDTO, error) {
+	logger := appLogger.FromContext(ctx)
 
-		// Update fields if provided
-		result0, "result1": result1}), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*profileService.UpdateProfile"), zap.Any("params", __logParams))
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.UpdateProfile"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = nil
-			result1 = domain.ErrProfileNotFound
-			return
+			logger.Warn("Profile not found for update",
+				zap.String(appLogger.FieldModule, "profile"),
+				zap.String(appLogger.FieldFunction, "UpdateProfile"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
+			return nil, domain.ErrProfileNotFound
 		}
-		result0 = nil
-		result1 = fmt.Errorf("get profile: %w", err)
-		return
+		logger.Error("Failed to get profile for update",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "UpdateProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
+	// Update fields if provided
 	if input.MonthlyIncome != nil {
 		profile.MonthlyIncome = *input.MonthlyIncome
 	}
@@ -142,51 +153,71 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 	}
 
 	if err := s.profileRepo.Update(ctx, profile); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.UpdateProfile"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = nil
-		result1 = fmt.Errorf("update profile: %w", err)
-		return
+		logger.Error("Failed to update profile",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "UpdateProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("profile_id", profile.ID.String()),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("update profile: %w", err)
 	}
-	result0 = s.convertToResponseDTO(profile)
-	result1 = nil
-	return
+
+	logger.Info("Profile updated successfully",
+		zap.String(appLogger.FieldModule, "profile"),
+		zap.String(appLogger.FieldFunction, "UpdateProfile"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("profile_id", profile.ID.String()),
+	)
+
+	return s.convertToResponseDTO(profile), nil
 }
 
-func (s *profileService) DeleteProfile(ctx context.Context, userID uuid.UUID) (result0 error) {
-	__logParams := map[string]any{"s": s, "ctx": ctx, "userID": userID}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*profileService.DeleteProfile"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*profileService.DeleteProfile"), zap.Any("params", __logParams))
+func (s *profileService) DeleteProfile(ctx context.Context, userID uuid.UUID) error {
+	logger := appLogger.FromContext(ctx)
+
 	profile, err := s.profileRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.DeleteProfile"), zap.Error(err), zap.Any("params", __logParams))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			result0 = domain.ErrProfileNotFound
-			return
+			logger.Warn("Profile not found for deletion",
+				zap.String(appLogger.FieldModule, "profile"),
+				zap.String(appLogger.FieldFunction, "DeleteProfile"),
+				zap.String(appLogger.FieldUserID, userID.String()),
+			)
+			return domain.ErrProfileNotFound
 		}
-		result0 = fmt.Errorf("get profile: %w", err)
-		return
+		logger.Error("Failed to get profile for deletion",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "DeleteProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.Error(err),
+		)
+		return fmt.Errorf("get profile: %w", err)
 	}
 
 	if err := s.profileRepo.Delete(ctx, profile.ID); err != nil {
-		zap.L().Error("function.error", zap.String("func", "*profileService.DeleteProfile"), zap.Error(err), zap.Any("params", __logParams))
-		result0 = fmt.Errorf("delete profile: %w", err)
-		return
+		logger.Error("Failed to delete profile",
+			zap.String(appLogger.FieldModule, "profile"),
+			zap.String(appLogger.FieldFunction, "DeleteProfile"),
+			zap.String(appLogger.FieldUserID, userID.String()),
+			zap.String("profile_id", profile.ID.String()),
+			zap.Error(err),
+		)
+		return fmt.Errorf("delete profile: %w", err)
 	}
-	result0 = nil
-	return
+
+	logger.Info("Profile deleted successfully",
+		zap.String(appLogger.FieldModule, "profile"),
+		zap.String(appLogger.FieldFunction, "DeleteProfile"),
+		zap.String(appLogger.FieldUserID, userID.String()),
+		zap.String("profile_id", profile.ID.String()),
+	)
+
+	return nil
 }
 
-func (s *profileService) convertToResponseDTO(profile *model.Profile) (result0 *dto.ProfileResponseDTO) {
-	__logParams := map[string]any{"s": s, "profile": profile}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "*profileService.convertToResponseDTO"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "*profileService.convertToResponseDTO"), zap.Any("params", __logParams))
-	result0 = &dto.ProfileResponseDTO{
+func (s *profileService) convertToResponseDTO(profile *model.Profile) *dto.ProfileResponseDTO {
+	return &dto.ProfileResponseDTO{
 		ID:                  profile.ID.String(),
 		UserID:              profile.UserID.String(),
 		MonthlyIncome:       profile.MonthlyIncome,
@@ -198,35 +229,18 @@ func (s *profileService) convertToResponseDTO(profile *model.Profile) (result0 *
 		CreatedAt:           profile.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:           profile.UpdatedAt.UTC().Format(time.RFC3339),
 	}
-	return
 }
 
-func normalizeStringSlice(values []string) (result0 []string) {
-	__logParams := map[string]any{"values": values}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "normalizeStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "normalizeStringSlice"), zap.Any("params", __logParams))
+func normalizeStringSlice(values []string) []string {
 	if values == nil {
-		result0 = []string{}
-		return
+		return []string{}
 	}
-	result0 = values
-	return
+	return values
 }
 
-func toStringSlice(values model.StringArray) (result0 []string) {
-	__logParams := map[string]any{"values": values}
-	__logStart := time.Now()
-	defer func() {
-		zap.L().Info("function.exit", zap.String("func", "toStringSlice"), zap.Any("result", result0), zap.Duration("duration", time.Since(__logStart)))
-	}()
-	zap.L().Info("function.entry", zap.String("func", "toStringSlice"), zap.Any("params", __logParams))
+func toStringSlice(values model.StringArray) []string {
 	if values == nil {
-		result0 = []string{}
-		return
+		return []string{}
 	}
-	result0 = append([]string(nil), values...)
-	return
+	return append([]string(nil), values...)
 }
